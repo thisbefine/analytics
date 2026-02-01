@@ -187,8 +187,8 @@ export function createDeferred<T>(): {
 	resolve: (value: T) => void;
 	reject: (error: Error) => void;
 } {
-	let resolve: (value: T) => void;
-	let reject: (error: Error) => void;
+	let resolve!: (value: T) => void;
+	let reject!: (error: Error) => void;
 
 	const promise = new Promise<T>((res, rej) => {
 		resolve = res;
@@ -197,7 +197,7 @@ export function createDeferred<T>(): {
 
 	return {
 		promise,
-		resolve: resolve as (value: T | PromiseLike<T>) => void,
-		reject: reject as (reason?: unknown) => void,
+		resolve,
+		reject,
 	};
 }

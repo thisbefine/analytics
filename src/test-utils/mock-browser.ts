@@ -170,18 +170,20 @@ export function mockCookieEnabled(enabled: boolean): void {
 export function mockTimezone(timezone: string): void {
 	const originalDateTimeFormat = Intl.DateTimeFormat;
 
-	vi.spyOn(Intl, "DateTimeFormat").mockImplementation(
-		(locales?: string | string[], options?: Intl.DateTimeFormatOptions) => {
-			const format = new originalDateTimeFormat(locales, options);
-			return {
-				...format,
-				resolvedOptions: () => ({
-					...format.resolvedOptions(),
-					timeZone: timezone,
-				}),
-			} as Intl.DateTimeFormat;
-		},
-	);
+	vi.spyOn(Intl, "DateTimeFormat").mockImplementation(((
+		locales?: string | string[],
+		options?: Intl.DateTimeFormatOptions,
+	) => {
+		const format = new originalDateTimeFormat(locales, options);
+		return {
+			...format,
+			resolvedOptions: () => ({
+				...format.resolvedOptions(),
+				timeZone: timezone,
+			}),
+		} as Intl.DateTimeFormat;
+		// biome-ignore lint/suspicious/noExplicitAny: Mocking Intl.DateTimeFormat requires flexible types
+	}) as any);
 }
 
 /**
