@@ -2,6 +2,7 @@
 
 > Know what's happening in your app. Fix it before your users complain.
 
+[![CI](https://github.com/thisbefine/analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/thisbefine/analytics/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@thisbefine/analytics.svg)](https://www.npmjs.com/package/@thisbefine/analytics)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/@thisbefine/analytics)](https://bundlephobia.com/package/@thisbefine/analytics)
 [![license](https://img.shields.io/npm/l/@thisbefine/analytics.svg)](https://github.com/thisbefine/analytics/blob/main/LICENSE)

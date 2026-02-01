@@ -38,3 +38,4 @@ coverage/
 # Package manager locks (using pnpm)
 package-lock.json
 yarn.lock
+*.tgz
