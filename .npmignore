@@ -1,0 +1,26 @@
+# Source files (only dist/ is published)
+src/
+
+# Config files
+tsconfig.json
+tsconfig.build.json
+biome.json
+.editorconfig
+
+# GitHub
+.github/
+
+# Git
+.gitignore
+.gitattributes
+
+# Documentation (README is kept)
+CHANGELOG.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+
+# Development
+*.log
+.DS_Store
+coverage/

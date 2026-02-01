@@ -1,0 +1,107 @@
+{
+	"name": "@thisbefine/analytics",
+	"version": "0.1.0",
+	"description": "Track events, catch errors, and pretend everything's fine. Lightweight analytics for indie SaaS.",
+	"author": "Thisbefine <hello@thisbefine.com>",
+	"license": "MIT",
+	"homepage": "https://thisbefine.com",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/thisbefine/analytics.git"
+	},
+	"bugs": {
+		"url": "https://github.com/thisbefine/analytics/issues"
+	},
+	"type": "module",
+	"sideEffects": false,
+	"engines": {
+		"node": ">=18"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./react": {
+			"types": "./dist/react.d.ts",
+			"default": "./dist/react.js"
+		},
+		"./next": {
+			"types": "./dist/next.d.ts",
+			"default": "./dist/next.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md"
+	],
+	"scripts": {
+		"prebuild": "node scripts/generate-version.js",
+		"build": "tsc --project tsconfig.build.json",
+		"dev": "tsc --project tsconfig.build.json --watch",
+		"typecheck": "tsc --noEmit",
+		"format": "biome check . --write",
+		"lint": "biome check .",
+		"clean": "rm -rf dist",
+		"prepublishOnly": "pnpm run clean && pnpm run build",
+		"test": "vitest",
+		"test:run": "vitest run",
+		"test:watch": "vitest --watch",
+		"test:coverage": "vitest run --coverage",
+		"test:ui": "vitest --ui"
+	},
+	"peerDependencies": {
+		"next": ">=13",
+		"react": ">=18"
+	},
+	"peerDependenciesMeta": {
+		"next": {
+			"optional": true
+		},
+		"react": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.13",
+		"@testing-library/jest-dom": "^6.6.3",
+		"@testing-library/react": "^16.1.0",
+		"@types/node": "^25.1.0",
+		"@types/react": "^19.2.10",
+		"@vitest/coverage-v8": "^3.0.0",
+		"@vitest/ui": "^3.0.0",
+		"jsdom": "^26.0.0",
+		"next": "^16.1.6",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
+		"typescript": "^5.9.3",
+		"vitest": "^3.0.0"
+	},
+	"keywords": [
+		"analytics",
+		"tracking",
+		"events",
+		"pageviews",
+		"user-identification",
+		"session-tracking",
+		"error-tracking",
+		"logging",
+		"nextjs",
+		"react",
+		"typescript",
+		"privacy",
+		"gdpr",
+		"thisbefine",
+		"saas",
+		"product-analytics"
+	],
+	"dependencies": {
+		"uuid": "^13.0.0"
+	}
+}
