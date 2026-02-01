@@ -6,6 +6,7 @@
 [![npm version](https://img.shields.io/npm/v/@thisbefine/analytics.svg)](https://www.npmjs.com/package/@thisbefine/analytics)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/@thisbefine/analytics)](https://bundlephobia.com/package/@thisbefine/analytics)
 [![license](https://img.shields.io/npm/l/@thisbefine/analytics.svg)](https://github.com/thisbefine/analytics/blob/main/LICENSE)
+[![docs](https://img.shields.io/badge/docs-thisbefine.com-blue)](https://www.thisbefine.com/docs)
 
 Lightweight analytics, error tracking, and logging for indie SaaS. Everything is fine. Your app is on fire? That's fine. Now you'll at least know about it.
 
@@ -394,6 +395,10 @@ import type {
 ## Browser Support
 
 Chrome 80+ | Firefox 75+ | Safari 13+ | Edge 80+
+
+## Documentation
+
+Full documentation available at **[thisbefine.com/docs](https://www.thisbefine.com/docs)**
 
 ## Contributing
 
