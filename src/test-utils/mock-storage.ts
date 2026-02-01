@@ -14,7 +14,6 @@ export class MockStorage implements Storage, StorageInterface {
 
 	clear(): void {
 		this.store.clear();
-		this._length = 0;
 	}
 
 	getItem(key: string): string | null {

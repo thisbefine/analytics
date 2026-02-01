@@ -5,7 +5,7 @@ node_modules/
 dist/
 
 # Auto-generated files
-src/core/version.ts
+# src/core/version.ts - now committed to git
 
 # Logs
 *.log

@@ -11,10 +11,10 @@ import {
 	resetGlobalAnalytics,
 } from "../../test-utils";
 
-const mockUsePathname = vi.fn(() => "/test-page");
-const mockUseSearchParams = vi.fn(() => ({
-	toString: () => "",
-}));
+const mockUsePathname = vi.fn(() => "/test-page" as string);
+const mockUseSearchParams = vi.fn(
+	() => ({ toString: () => "" as string }) as { toString: () => string } | null,
+);
 
 vi.mock("next/navigation", () => ({
 	usePathname: () => mockUsePathname(),
