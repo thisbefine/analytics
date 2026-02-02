@@ -1,10 +1,10 @@
 import { ErrorCapture } from "./errors";
 import {
-	LIFECYCLE_EVENTS,
 	type AccountDeletedProps,
 	type FeatureActivatedProps,
 	type InviteAcceptedProps,
 	type InviteSentProps,
+	LIFECYCLE_EVENTS,
 	type LoginProps,
 	type LogoutProps,
 	type PlanDowngradedProps,

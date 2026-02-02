@@ -34,14 +34,6 @@
  * @packageDocumentation
  */
 
-export type {
-	AccountTraits,
-	Analytics as AnalyticsInstance,
-	AnalyticsConfig,
-	UserState,
-	UserTraits,
-} from "./core/types";
-
 // Lifecycle event types
 export type {
 	AccountDeletedProps,
@@ -59,6 +51,13 @@ export type {
 	TrialEndedProps,
 	TrialStartedProps,
 } from "./core/lifecycle";
+export type {
+	AccountTraits,
+	Analytics as AnalyticsInstance,
+	AnalyticsConfig,
+	UserState,
+	UserTraits,
+} from "./core/types";
 
 export type { AnalyticsProps } from "./react/analytics";
 export { Analytics } from "./react/analytics";
@@ -67,28 +66,28 @@ export type { BugReportFABProps } from "./react/bug-report-widget";
 export { BugReportFAB } from "./react/bug-report-widget";
 
 export {
+	// Lifecycle hooks
+	useAccountDeleted,
 	useAnalytics,
 	useCaptureException,
+	useFeatureActivated,
 	useGetUser,
 	useGroup,
 	useIdentify,
-	useLog,
-	usePage,
-	useReset,
-	useTrack,
-	// Lifecycle hooks
-	useAccountDeleted,
-	useFeatureActivated,
 	useInviteAccepted,
 	useInviteSent,
+	useLog,
 	useLogin,
 	useLogout,
+	usePage,
 	usePlanDowngraded,
 	usePlanUpgraded,
+	useReset,
 	useSignup,
 	useSubscriptionCancelled,
 	useSubscriptionRenewed,
 	useSubscriptionStarted,
+	useTrack,
 	useTrialEnded,
 	useTrialStarted,
 } from "./react/hooks";

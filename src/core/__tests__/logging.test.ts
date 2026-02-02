@@ -29,6 +29,21 @@ describe("log() Function", () => {
 			captureMessage: vi.fn(),
 			addBreadcrumb: vi.fn(),
 			log: vi.fn(),
+			// Lifecycle events
+			signup: vi.fn(),
+			login: vi.fn(),
+			logout: vi.fn(),
+			accountDeleted: vi.fn(),
+			subscriptionStarted: vi.fn(),
+			subscriptionCancelled: vi.fn(),
+			subscriptionRenewed: vi.fn(),
+			planUpgraded: vi.fn(),
+			planDowngraded: vi.fn(),
+			trialStarted: vi.fn(),
+			trialEnded: vi.fn(),
+			inviteSent: vi.fn(),
+			inviteAccepted: vi.fn(),
+			featureActivated: vi.fn(),
 		};
 	});
 

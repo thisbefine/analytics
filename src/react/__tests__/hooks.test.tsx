@@ -683,7 +683,10 @@ describe("React Hooks", () => {
 					const spy = vi.spyOn(analyticsInstance, "inviteSent");
 					const { result } = renderHook(() => useInviteSent());
 
-					result.current({ inviteEmail: "colleague@example.com", role: "editor" });
+					result.current({
+						inviteEmail: "colleague@example.com",
+						role: "editor",
+					});
 
 					expect(spy).toHaveBeenCalledWith({
 						inviteEmail: "colleague@example.com",
@@ -741,9 +744,7 @@ describe("React Hooks", () => {
 				const { result: subscriptionResult } = renderHook(() =>
 					useSubscriptionStarted(),
 				);
-				expect(() =>
-					subscriptionResult.current({ plan: "pro" }),
-				).not.toThrow();
+				expect(() => subscriptionResult.current({ plan: "pro" })).not.toThrow();
 			});
 
 			it("should maintain hook identity across multiple renders for all lifecycle hooks", () => {

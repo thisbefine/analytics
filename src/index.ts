@@ -47,9 +47,6 @@ export type {
 	ErrorCaptureConfig,
 	ErrorPayload,
 } from "./core/errors";
-
-export type { LogLevel } from "./core/logging";
-
 // Lifecycle event types
 export type {
 	AccountDeletedProps,
@@ -67,8 +64,8 @@ export type {
 	TrialEndedProps,
 	TrialStartedProps,
 } from "./core/lifecycle";
-
 export { LIFECYCLE_EVENTS } from "./core/lifecycle";
+export type { LogLevel } from "./core/logging";
 
 export type {
 	AccountTraits,
