@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-02-02
+
+### Fixed
+
+- Export lifecycle hooks and types from `/next` entry point (previously only exported from `/react`)
+
 ## [0.2.0] - 2026-02-02
 
 ### Added
@@ -79,6 +85,7 @@ Available hooks: `useSignup`, `useLogin`, `useLogout`, `useAccountDeleted`, `use
 - Bug report widget (`BugReportFAB`)
 - TypeScript support with full type definitions
 
-[Unreleased]: https://github.com/thisbefine/analytics/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/thisbefine/analytics/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/thisbefine/analytics/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/thisbefine/analytics/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/thisbefine/analytics/releases/tag/v0.1.0
