@@ -795,4 +795,585 @@ describe("Analytics", () => {
 			);
 		});
 	});
+
+	describe("Lifecycle Events", () => {
+		let analytics: AnalyticsImpl;
+
+		beforeEach(() => {
+			analytics = new AnalyticsImpl(createTestConfig());
+		});
+
+		describe("User Lifecycle", () => {
+			describe("signup()", () => {
+				it("should track $signup event", async () => {
+					analytics.signup({ method: "google", plan: "free" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$signup");
+				});
+
+				it("should include signup properties", async () => {
+					analytics.signup({
+						method: "email",
+						plan: "pro",
+						invitedBy: "user_123",
+						source: "web",
+					});
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.method).toBe("email");
+					expect(props.plan).toBe("pro");
+					expect(props.invitedBy).toBe("user_123");
+					expect(props.source).toBe("web");
+				});
+
+				it("should work without properties", async () => {
+					analytics.signup();
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$signup");
+				});
+			});
+
+			describe("login()", () => {
+				it("should track $login event", async () => {
+					analytics.login({ method: "passkey" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$login");
+				});
+
+				it("should include login properties", async () => {
+					analytics.login({ method: "google", isNewDevice: true });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.method).toBe("google");
+					expect(props.isNewDevice).toBe(true);
+				});
+			});
+
+			describe("logout()", () => {
+				it("should track $logout event", async () => {
+					analytics.logout({ reason: "manual" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$logout");
+				});
+
+				it("should include logout properties", async () => {
+					analytics.logout({ reason: "session_expired", source: "api" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.reason).toBe("session_expired");
+					expect(props.source).toBe("api");
+				});
+			});
+
+			describe("accountDeleted()", () => {
+				it("should track $account_deleted event", async () => {
+					analytics.accountDeleted({ reason: "too_expensive" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$account_deleted");
+				});
+
+				it("should include account deleted properties", async () => {
+					analytics.accountDeleted({
+						reason: "not_using",
+						feedbackScore: 7,
+						tenure: 90,
+					});
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.reason).toBe("not_using");
+					expect(props.feedbackScore).toBe(7);
+					expect(props.tenure).toBe(90);
+				});
+			});
+		});
+
+		describe("Subscription Lifecycle", () => {
+			describe("subscriptionStarted()", () => {
+				it("should track $subscription_started event", async () => {
+					analytics.subscriptionStarted({ plan: "pro" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$subscription_started");
+				});
+
+				it("should include subscription properties", async () => {
+					analytics.subscriptionStarted({
+						plan: "team",
+						interval: "yearly",
+						mrr: 499,
+						trialConverted: true,
+					});
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.plan).toBe("team");
+					expect(props.interval).toBe("yearly");
+					expect(props.mrr).toBe(499);
+					expect(props.trialConverted).toBe(true);
+				});
+
+				it("should warn when plan is missing", () => {
+					const consoleSpy = mockConsole();
+					const debugAnalytics = new AnalyticsImpl(
+						createTestConfig({ debug: true }),
+					);
+
+					// @ts-expect-error - testing missing required field
+					debugAnalytics.subscriptionStarted({});
+
+					expect(consoleSpy.warn).toHaveBeenCalledWith(
+						expect.stringContaining("[Thisbefine Analytics]"),
+						"subscriptionStarted: plan is required",
+					);
+				});
+			});
+
+			describe("subscriptionCancelled()", () => {
+				it("should track $subscription_cancelled event", async () => {
+					analytics.subscriptionCancelled({ plan: "pro" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$subscription_cancelled");
+				});
+
+				it("should include cancellation properties", async () => {
+					analytics.subscriptionCancelled({
+						plan: "pro",
+						reason: "too_expensive",
+						feedback: "Great product but over budget",
+						mrr: 99,
+						tenure: 180,
+						willChurnAt: "2024-12-31T00:00:00Z",
+					});
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.plan).toBe("pro");
+					expect(props.reason).toBe("too_expensive");
+					expect(props.feedback).toBe("Great product but over budget");
+					expect(props.mrr).toBe(99);
+					expect(props.tenure).toBe(180);
+					expect(props.willChurnAt).toBe("2024-12-31T00:00:00Z");
+				});
+
+				it("should warn when plan is missing", () => {
+					const consoleSpy = mockConsole();
+					const debugAnalytics = new AnalyticsImpl(
+						createTestConfig({ debug: true }),
+					);
+
+					// @ts-expect-error - testing missing required field
+					debugAnalytics.subscriptionCancelled({});
+
+					expect(consoleSpy.warn).toHaveBeenCalledWith(
+						expect.stringContaining("[Thisbefine Analytics]"),
+						"subscriptionCancelled: plan is required",
+					);
+				});
+			});
+
+			describe("subscriptionRenewed()", () => {
+				it("should track $subscription_renewed event", async () => {
+					analytics.subscriptionRenewed({ plan: "pro" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$subscription_renewed");
+				});
+
+				it("should include renewal properties", async () => {
+					analytics.subscriptionRenewed({
+						plan: "team",
+						interval: "monthly",
+						mrr: 199,
+						renewalCount: 12,
+					});
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.plan).toBe("team");
+					expect(props.interval).toBe("monthly");
+					expect(props.mrr).toBe(199);
+					expect(props.renewalCount).toBe(12);
+				});
+			});
+
+			describe("planUpgraded()", () => {
+				it("should track $plan_upgraded event", async () => {
+					analytics.planUpgraded({ fromPlan: "starter", toPlan: "pro" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$plan_upgraded");
+				});
+
+				it("should include upgrade properties", async () => {
+					analytics.planUpgraded({
+						fromPlan: "starter",
+						toPlan: "enterprise",
+						mrrChange: 400,
+					});
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.fromPlan).toBe("starter");
+					expect(props.toPlan).toBe("enterprise");
+					expect(props.mrrChange).toBe(400);
+				});
+
+				it("should warn when fromPlan or toPlan is missing", () => {
+					const consoleSpy = mockConsole();
+					const debugAnalytics = new AnalyticsImpl(
+						createTestConfig({ debug: true }),
+					);
+
+					// @ts-expect-error - testing missing required field
+					debugAnalytics.planUpgraded({ fromPlan: "starter" });
+
+					expect(consoleSpy.warn).toHaveBeenCalledWith(
+						expect.stringContaining("[Thisbefine Analytics]"),
+						"planUpgraded: fromPlan and toPlan are required",
+					);
+				});
+			});
+
+			describe("planDowngraded()", () => {
+				it("should track $plan_downgraded event", async () => {
+					analytics.planDowngraded({ fromPlan: "pro", toPlan: "starter" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$plan_downgraded");
+				});
+
+				it("should include downgrade properties", async () => {
+					analytics.planDowngraded({
+						fromPlan: "enterprise",
+						toPlan: "pro",
+						reason: "budget_cuts",
+						mrrChange: -300,
+					});
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.fromPlan).toBe("enterprise");
+					expect(props.toPlan).toBe("pro");
+					expect(props.reason).toBe("budget_cuts");
+					expect(props.mrrChange).toBe(-300);
+				});
+			});
+
+			describe("trialStarted()", () => {
+				it("should track $trial_started event", async () => {
+					analytics.trialStarted({ plan: "pro" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$trial_started");
+				});
+
+				it("should include trial properties", async () => {
+					analytics.trialStarted({
+						plan: "enterprise",
+						trialDays: 30,
+						expiresAt: "2024-12-31T00:00:00Z",
+					});
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.plan).toBe("enterprise");
+					expect(props.trialDays).toBe(30);
+					expect(props.expiresAt).toBe("2024-12-31T00:00:00Z");
+				});
+			});
+
+			describe("trialEnded()", () => {
+				it("should track $trial_ended event", async () => {
+					analytics.trialEnded({ plan: "pro", converted: true });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$trial_ended");
+				});
+
+				it("should include trial end properties", async () => {
+					analytics.trialEnded({
+						plan: "pro",
+						converted: false,
+						reason: "no_budget",
+					});
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.plan).toBe("pro");
+					expect(props.converted).toBe(false);
+					expect(props.reason).toBe("no_budget");
+				});
+
+				it("should warn when plan or converted is missing", () => {
+					const consoleSpy = mockConsole();
+					const debugAnalytics = new AnalyticsImpl(
+						createTestConfig({ debug: true }),
+					);
+
+					// @ts-expect-error - testing missing required field
+					debugAnalytics.trialEnded({ plan: "pro" });
+
+					expect(consoleSpy.warn).toHaveBeenCalledWith(
+						expect.stringContaining("[Thisbefine Analytics]"),
+						"trialEnded: plan and converted are required",
+					);
+				});
+			});
+		});
+
+		describe("Engagement", () => {
+			describe("inviteSent()", () => {
+				it("should track $invite_sent event", async () => {
+					analytics.inviteSent({ inviteEmail: "colleague@example.com" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$invite_sent");
+				});
+
+				it("should include invite properties", async () => {
+					analytics.inviteSent({
+						inviteEmail: "colleague@example.com",
+						role: "editor",
+					});
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.inviteEmail).toBe("colleague@example.com");
+					expect(props.role).toBe("editor");
+				});
+
+				it("should work without properties", async () => {
+					analytics.inviteSent();
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$invite_sent");
+				});
+			});
+
+			describe("inviteAccepted()", () => {
+				it("should track $invite_accepted event", async () => {
+					analytics.inviteAccepted({ invitedBy: "user_123" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$invite_accepted");
+				});
+
+				it("should include invite accepted properties", async () => {
+					analytics.inviteAccepted({ invitedBy: "user_123", role: "viewer" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.invitedBy).toBe("user_123");
+					expect(props.role).toBe("viewer");
+				});
+			});
+
+			describe("featureActivated()", () => {
+				it("should track $feature_activated event", async () => {
+					analytics.featureActivated({ feature: "dark_mode" });
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					expect(body.batch[0].event).toBe("$feature_activated");
+				});
+
+				it("should include feature activation properties", async () => {
+					analytics.featureActivated({
+						feature: "ai_assistant",
+						isFirstTime: true,
+						source: "settings",
+					});
+					await analytics.flush();
+
+					const call = getLastFetchCall();
+					const body = parseFetchBody(call?.options) as {
+						batch: Record<string, unknown>[];
+					};
+					const props = body.batch[0].properties as Record<string, unknown>;
+					expect(props.feature).toBe("ai_assistant");
+					expect(props.isFirstTime).toBe(true);
+					expect(props.source).toBe("settings");
+				});
+
+				it("should warn when feature is missing", () => {
+					const consoleSpy = mockConsole();
+					const debugAnalytics = new AnalyticsImpl(
+						createTestConfig({ debug: true }),
+					);
+
+					// @ts-expect-error - testing missing required field
+					debugAnalytics.featureActivated({});
+
+					expect(consoleSpy.warn).toHaveBeenCalledWith(
+						expect.stringContaining("[Thisbefine Analytics]"),
+						"featureActivated: feature is required",
+					);
+				});
+			});
+		});
+
+		describe("Privacy & Opt-out", () => {
+			it("should respect privacy opt-out for lifecycle events", async () => {
+				analytics.optOut();
+				analytics.signup({ method: "google" });
+				analytics.subscriptionStarted({ plan: "pro" });
+				await analytics.flush();
+
+				expect(getAllFetchCalls().length).toBe(0);
+			});
+
+			it("should resume tracking lifecycle events after opt-in", async () => {
+				analytics.optOut();
+				analytics.optIn();
+				analytics.signup({ method: "email" });
+				await analytics.flush();
+
+				expect(getAllFetchCalls().length).toBe(1);
+			});
+		});
+
+		describe("Session Context", () => {
+			it("should include session and user context in lifecycle events", async () => {
+				analytics.identify("user_123", { email: "test@example.com" });
+				analytics.group("account_456", { name: "Acme Inc" });
+				analytics.signup({ method: "google" });
+				await analytics.flush();
+
+				const call = getLastFetchCall();
+				const body = parseFetchBody(call?.options) as {
+					batch: Record<string, unknown>[];
+				};
+				const signupEvent = body.batch.find((e) => e.event === "$signup");
+				expect(signupEvent?.userId).toBe("user_123");
+				expect(signupEvent?.accountId).toBe("account_456");
+				expect(signupEvent?.sessionId).toBeDefined();
+				expect(signupEvent?.anonymousId).toBeDefined();
+			});
+		});
+	});
 });

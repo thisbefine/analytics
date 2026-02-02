@@ -10,15 +10,29 @@ import {
 	resetGlobalAnalytics,
 } from "../../test-utils";
 import {
+	useAccountDeleted,
 	useAnalytics,
 	useCaptureException,
+	useFeatureActivated,
 	useGetUser,
 	useGroup,
 	useIdentify,
+	useInviteAccepted,
+	useInviteSent,
 	useLog,
+	useLogin,
+	useLogout,
 	usePage,
+	usePlanDowngraded,
+	usePlanUpgraded,
 	useReset,
+	useSignup,
+	useSubscriptionCancelled,
+	useSubscriptionRenewed,
+	useSubscriptionStarted,
 	useTrack,
+	useTrialEnded,
+	useTrialStarted,
 } from "../hooks";
 
 describe("React Hooks", () => {
@@ -425,6 +439,360 @@ describe("React Hooks", () => {
 				firstRender.captureException,
 			);
 			expect(result.current.log).toBe(firstRender.log);
+		});
+	});
+
+	describe("Lifecycle Event Hooks", () => {
+		describe("User Lifecycle", () => {
+			describe("useSignup", () => {
+				it("should return a memoized signup function", () => {
+					const { result } = renderHook(() => useSignup());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.signup with props", () => {
+					const signupSpy = vi.spyOn(analyticsInstance, "signup");
+					const { result } = renderHook(() => useSignup());
+
+					result.current({ method: "google", plan: "free" });
+
+					expect(signupSpy).toHaveBeenCalledWith({
+						method: "google",
+						plan: "free",
+					});
+				});
+
+				it("should return same function reference on re-render", () => {
+					const { result, rerender } = renderHook(() => useSignup());
+					const firstFn = result.current;
+
+					rerender();
+
+					expect(result.current).toBe(firstFn);
+				});
+			});
+
+			describe("useLogin", () => {
+				it("should return a memoized login function", () => {
+					const { result } = renderHook(() => useLogin());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.login with props", () => {
+					const loginSpy = vi.spyOn(analyticsInstance, "login");
+					const { result } = renderHook(() => useLogin());
+
+					result.current({ method: "passkey", isNewDevice: true });
+
+					expect(loginSpy).toHaveBeenCalledWith({
+						method: "passkey",
+						isNewDevice: true,
+					});
+				});
+			});
+
+			describe("useLogout", () => {
+				it("should return a memoized logout function", () => {
+					const { result } = renderHook(() => useLogout());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.logout with props", () => {
+					const logoutSpy = vi.spyOn(analyticsInstance, "logout");
+					const { result } = renderHook(() => useLogout());
+
+					result.current({ reason: "manual" });
+
+					expect(logoutSpy).toHaveBeenCalledWith({ reason: "manual" });
+				});
+			});
+
+			describe("useAccountDeleted", () => {
+				it("should return a memoized accountDeleted function", () => {
+					const { result } = renderHook(() => useAccountDeleted());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.accountDeleted with props", () => {
+					const accountDeletedSpy = vi.spyOn(
+						analyticsInstance,
+						"accountDeleted",
+					);
+					const { result } = renderHook(() => useAccountDeleted());
+
+					result.current({ reason: "too_expensive", tenure: 90 });
+
+					expect(accountDeletedSpy).toHaveBeenCalledWith({
+						reason: "too_expensive",
+						tenure: 90,
+					});
+				});
+			});
+		});
+
+		describe("Subscription Lifecycle", () => {
+			describe("useSubscriptionStarted", () => {
+				it("should return a memoized subscriptionStarted function", () => {
+					const { result } = renderHook(() => useSubscriptionStarted());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.subscriptionStarted with props", () => {
+					const spy = vi.spyOn(analyticsInstance, "subscriptionStarted");
+					const { result } = renderHook(() => useSubscriptionStarted());
+
+					result.current({ plan: "pro", interval: "yearly", mrr: 99 });
+
+					expect(spy).toHaveBeenCalledWith({
+						plan: "pro",
+						interval: "yearly",
+						mrr: 99,
+					});
+				});
+			});
+
+			describe("useSubscriptionCancelled", () => {
+				it("should return a memoized subscriptionCancelled function", () => {
+					const { result } = renderHook(() => useSubscriptionCancelled());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.subscriptionCancelled with props", () => {
+					const spy = vi.spyOn(analyticsInstance, "subscriptionCancelled");
+					const { result } = renderHook(() => useSubscriptionCancelled());
+
+					result.current({ plan: "pro", reason: "too_expensive" });
+
+					expect(spy).toHaveBeenCalledWith({
+						plan: "pro",
+						reason: "too_expensive",
+					});
+				});
+			});
+
+			describe("useSubscriptionRenewed", () => {
+				it("should return a memoized subscriptionRenewed function", () => {
+					const { result } = renderHook(() => useSubscriptionRenewed());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.subscriptionRenewed with props", () => {
+					const spy = vi.spyOn(analyticsInstance, "subscriptionRenewed");
+					const { result } = renderHook(() => useSubscriptionRenewed());
+
+					result.current({ plan: "team", renewalCount: 12 });
+
+					expect(spy).toHaveBeenCalledWith({
+						plan: "team",
+						renewalCount: 12,
+					});
+				});
+			});
+
+			describe("usePlanUpgraded", () => {
+				it("should return a memoized planUpgraded function", () => {
+					const { result } = renderHook(() => usePlanUpgraded());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.planUpgraded with props", () => {
+					const spy = vi.spyOn(analyticsInstance, "planUpgraded");
+					const { result } = renderHook(() => usePlanUpgraded());
+
+					result.current({ fromPlan: "starter", toPlan: "pro", mrrChange: 50 });
+
+					expect(spy).toHaveBeenCalledWith({
+						fromPlan: "starter",
+						toPlan: "pro",
+						mrrChange: 50,
+					});
+				});
+			});
+
+			describe("usePlanDowngraded", () => {
+				it("should return a memoized planDowngraded function", () => {
+					const { result } = renderHook(() => usePlanDowngraded());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.planDowngraded with props", () => {
+					const spy = vi.spyOn(analyticsInstance, "planDowngraded");
+					const { result } = renderHook(() => usePlanDowngraded());
+
+					result.current({
+						fromPlan: "pro",
+						toPlan: "starter",
+						reason: "budget",
+					});
+
+					expect(spy).toHaveBeenCalledWith({
+						fromPlan: "pro",
+						toPlan: "starter",
+						reason: "budget",
+					});
+				});
+			});
+
+			describe("useTrialStarted", () => {
+				it("should return a memoized trialStarted function", () => {
+					const { result } = renderHook(() => useTrialStarted());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.trialStarted with props", () => {
+					const spy = vi.spyOn(analyticsInstance, "trialStarted");
+					const { result } = renderHook(() => useTrialStarted());
+
+					result.current({ plan: "pro", trialDays: 14 });
+
+					expect(spy).toHaveBeenCalledWith({
+						plan: "pro",
+						trialDays: 14,
+					});
+				});
+			});
+
+			describe("useTrialEnded", () => {
+				it("should return a memoized trialEnded function", () => {
+					const { result } = renderHook(() => useTrialEnded());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.trialEnded with props", () => {
+					const spy = vi.spyOn(analyticsInstance, "trialEnded");
+					const { result } = renderHook(() => useTrialEnded());
+
+					result.current({ plan: "pro", converted: true });
+
+					expect(spy).toHaveBeenCalledWith({
+						plan: "pro",
+						converted: true,
+					});
+				});
+			});
+		});
+
+		describe("Engagement", () => {
+			describe("useInviteSent", () => {
+				it("should return a memoized inviteSent function", () => {
+					const { result } = renderHook(() => useInviteSent());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.inviteSent with props", () => {
+					const spy = vi.spyOn(analyticsInstance, "inviteSent");
+					const { result } = renderHook(() => useInviteSent());
+
+					result.current({ inviteEmail: "colleague@example.com", role: "editor" });
+
+					expect(spy).toHaveBeenCalledWith({
+						inviteEmail: "colleague@example.com",
+						role: "editor",
+					});
+				});
+			});
+
+			describe("useInviteAccepted", () => {
+				it("should return a memoized inviteAccepted function", () => {
+					const { result } = renderHook(() => useInviteAccepted());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.inviteAccepted with props", () => {
+					const spy = vi.spyOn(analyticsInstance, "inviteAccepted");
+					const { result } = renderHook(() => useInviteAccepted());
+
+					result.current({ invitedBy: "user_123", role: "viewer" });
+
+					expect(spy).toHaveBeenCalledWith({
+						invitedBy: "user_123",
+						role: "viewer",
+					});
+				});
+			});
+
+			describe("useFeatureActivated", () => {
+				it("should return a memoized featureActivated function", () => {
+					const { result } = renderHook(() => useFeatureActivated());
+					expect(typeof result.current).toBe("function");
+				});
+
+				it("should call analytics.featureActivated with props", () => {
+					const spy = vi.spyOn(analyticsInstance, "featureActivated");
+					const { result } = renderHook(() => useFeatureActivated());
+
+					result.current({ feature: "dark_mode", isFirstTime: true });
+
+					expect(spy).toHaveBeenCalledWith({
+						feature: "dark_mode",
+						isFirstTime: true,
+					});
+				});
+			});
+		});
+
+		describe("Edge Cases", () => {
+			it("should handle analytics not being available gracefully", async () => {
+				await resetGlobalAnalytics();
+
+				const { result: signupResult } = renderHook(() => useSignup());
+				expect(() => signupResult.current({ method: "google" })).not.toThrow();
+
+				const { result: subscriptionResult } = renderHook(() =>
+					useSubscriptionStarted(),
+				);
+				expect(() =>
+					subscriptionResult.current({ plan: "pro" }),
+				).not.toThrow();
+			});
+
+			it("should maintain hook identity across multiple renders for all lifecycle hooks", () => {
+				const { result, rerender } = renderHook(() => ({
+					signup: useSignup(),
+					login: useLogin(),
+					logout: useLogout(),
+					accountDeleted: useAccountDeleted(),
+					subscriptionStarted: useSubscriptionStarted(),
+					subscriptionCancelled: useSubscriptionCancelled(),
+					subscriptionRenewed: useSubscriptionRenewed(),
+					planUpgraded: usePlanUpgraded(),
+					planDowngraded: usePlanDowngraded(),
+					trialStarted: useTrialStarted(),
+					trialEnded: useTrialEnded(),
+					inviteSent: useInviteSent(),
+					inviteAccepted: useInviteAccepted(),
+					featureActivated: useFeatureActivated(),
+				}));
+
+				const firstRender = { ...result.current };
+
+				rerender();
+				rerender();
+				rerender();
+
+				expect(result.current.signup).toBe(firstRender.signup);
+				expect(result.current.login).toBe(firstRender.login);
+				expect(result.current.logout).toBe(firstRender.logout);
+				expect(result.current.accountDeleted).toBe(firstRender.accountDeleted);
+				expect(result.current.subscriptionStarted).toBe(
+					firstRender.subscriptionStarted,
+				);
+				expect(result.current.subscriptionCancelled).toBe(
+					firstRender.subscriptionCancelled,
+				);
+				expect(result.current.subscriptionRenewed).toBe(
+					firstRender.subscriptionRenewed,
+				);
+				expect(result.current.planUpgraded).toBe(firstRender.planUpgraded);
+				expect(result.current.planDowngraded).toBe(firstRender.planDowngraded);
+				expect(result.current.trialStarted).toBe(firstRender.trialStarted);
+				expect(result.current.trialEnded).toBe(firstRender.trialEnded);
+				expect(result.current.inviteSent).toBe(firstRender.inviteSent);
+				expect(result.current.inviteAccepted).toBe(firstRender.inviteAccepted);
+				expect(result.current.featureActivated).toBe(
+					firstRender.featureActivated,
+				);
+			});
 		});
 	});
 });

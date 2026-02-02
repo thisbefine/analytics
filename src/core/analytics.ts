@@ -1,4 +1,21 @@
 import { ErrorCapture } from "./errors";
+import {
+	LIFECYCLE_EVENTS,
+	type AccountDeletedProps,
+	type FeatureActivatedProps,
+	type InviteAcceptedProps,
+	type InviteSentProps,
+	type LoginProps,
+	type LogoutProps,
+	type PlanDowngradedProps,
+	type PlanUpgradedProps,
+	type SignupProps,
+	type SubscriptionCancelledProps,
+	type SubscriptionRenewedProps,
+	type SubscriptionStartedProps,
+	type TrialEndedProps,
+	type TrialStartedProps,
+} from "./lifecycle";
 import { createLogger, type Logger } from "./logger";
 import type { LogLevel } from "./logging";
 import { log as sendLog } from "./logging";
@@ -382,6 +399,132 @@ export class AnalyticsImpl implements Analytics {
 		}
 
 		return context;
+	}
+
+	// ============================================================
+	// Lifecycle Events
+	// ============================================================
+
+	/**
+	 * Track a user signup
+	 */
+	signup(props?: SignupProps): void {
+		this.track(LIFECYCLE_EVENTS.SIGNUP, props);
+	}
+
+	/**
+	 * Track a user login
+	 */
+	login(props?: LoginProps): void {
+		this.track(LIFECYCLE_EVENTS.LOGIN, props);
+	}
+
+	/**
+	 * Track a user logout
+	 */
+	logout(props?: LogoutProps): void {
+		this.track(LIFECYCLE_EVENTS.LOGOUT, props);
+	}
+
+	/**
+	 * Track account deletion
+	 */
+	accountDeleted(props?: AccountDeletedProps): void {
+		this.track(LIFECYCLE_EVENTS.ACCOUNT_DELETED, props);
+	}
+
+	/**
+	 * Track subscription start
+	 */
+	subscriptionStarted(props: SubscriptionStartedProps): void {
+		if (!props?.plan) {
+			this.logger.warn("subscriptionStarted: plan is required");
+		}
+		this.track(LIFECYCLE_EVENTS.SUBSCRIPTION_STARTED, props);
+	}
+
+	/**
+	 * Track subscription cancellation
+	 */
+	subscriptionCancelled(props: SubscriptionCancelledProps): void {
+		if (!props?.plan) {
+			this.logger.warn("subscriptionCancelled: plan is required");
+		}
+		this.track(LIFECYCLE_EVENTS.SUBSCRIPTION_CANCELLED, props);
+	}
+
+	/**
+	 * Track subscription renewal
+	 */
+	subscriptionRenewed(props: SubscriptionRenewedProps): void {
+		if (!props?.plan) {
+			this.logger.warn("subscriptionRenewed: plan is required");
+		}
+		this.track(LIFECYCLE_EVENTS.SUBSCRIPTION_RENEWED, props);
+	}
+
+	/**
+	 * Track plan upgrade
+	 */
+	planUpgraded(props: PlanUpgradedProps): void {
+		if (!props?.fromPlan || !props?.toPlan) {
+			this.logger.warn("planUpgraded: fromPlan and toPlan are required");
+		}
+		this.track(LIFECYCLE_EVENTS.PLAN_UPGRADED, props);
+	}
+
+	/**
+	 * Track plan downgrade
+	 */
+	planDowngraded(props: PlanDowngradedProps): void {
+		if (!props?.fromPlan || !props?.toPlan) {
+			this.logger.warn("planDowngraded: fromPlan and toPlan are required");
+		}
+		this.track(LIFECYCLE_EVENTS.PLAN_DOWNGRADED, props);
+	}
+
+	/**
+	 * Track trial start
+	 */
+	trialStarted(props: TrialStartedProps): void {
+		if (!props?.plan) {
+			this.logger.warn("trialStarted: plan is required");
+		}
+		this.track(LIFECYCLE_EVENTS.TRIAL_STARTED, props);
+	}
+
+	/**
+	 * Track trial end
+	 */
+	trialEnded(props: TrialEndedProps): void {
+		if (!props?.plan || props?.converted === undefined) {
+			this.logger.warn("trialEnded: plan and converted are required");
+		}
+		this.track(LIFECYCLE_EVENTS.TRIAL_ENDED, props);
+	}
+
+	/**
+	 * Track invite sent
+	 */
+	inviteSent(props?: InviteSentProps): void {
+		this.track(LIFECYCLE_EVENTS.INVITE_SENT, props);
+	}
+
+	/**
+	 * Track invite accepted
+	 */
+	inviteAccepted(props?: InviteAcceptedProps): void {
+		this.track(LIFECYCLE_EVENTS.INVITE_ACCEPTED, props);
+	}
+
+	/**
+	 * Track feature activation
+	 */
+	featureActivated(props: FeatureActivatedProps): void {
+		if (!props?.feature) {
+			this.logger.warn("featureActivated: feature is required");
+		}
+		this.track(LIFECYCLE_EVENTS.FEATURE_ACTIVATED, props);
 	}
 }
 

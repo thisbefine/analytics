@@ -1,6 +1,6 @@
 {
 	"name": "@thisbefine/analytics",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Track events, catch errors, and pretend everything's fine. Lightweight analytics for indie SaaS.",
 	"author": "Thisbefine <hello@thisbefine.com>",
 	"license": "MIT",

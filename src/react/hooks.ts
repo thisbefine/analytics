@@ -2,6 +2,22 @@
 
 import { useCallback } from "react";
 import { getAnalytics } from "../core/analytics";
+import type {
+	AccountDeletedProps,
+	FeatureActivatedProps,
+	InviteAcceptedProps,
+	InviteSentProps,
+	LoginProps,
+	LogoutProps,
+	PlanDowngradedProps,
+	PlanUpgradedProps,
+	SignupProps,
+	SubscriptionCancelledProps,
+	SubscriptionRenewedProps,
+	SubscriptionStartedProps,
+	TrialEndedProps,
+	TrialStartedProps,
+} from "../core/lifecycle";
 import type { LogLevel } from "../core/logging";
 import type { AccountTraits, Analytics, UserTraits } from "../core/types";
 
@@ -206,3 +222,183 @@ export const useLog = () => {
 		[],
 	);
 };
+
+// ============================================================
+// Lifecycle Event Hooks
+// ============================================================
+
+/**
+ * Factory helper to create lifecycle hooks
+ */
+const createLifecycleHook = <T>(method: keyof Analytics) => {
+	return () =>
+		useCallback((props?: T) => {
+			const analytics = getAnalytics();
+			if (analytics && method in analytics) {
+				(analytics[method] as (p?: T) => void)?.(props);
+			}
+		}, []);
+};
+
+/**
+ * Hook to track user signups
+ *
+ * @example
+ * ```tsx
+ * const signup = useSignup();
+ * signup({ method: 'google', plan: 'free' });
+ * ```
+ */
+export const useSignup = createLifecycleHook<SignupProps>("signup");
+
+/**
+ * Hook to track user logins
+ *
+ * @example
+ * ```tsx
+ * const login = useLogin();
+ * login({ method: 'passkey' });
+ * ```
+ */
+export const useLogin = createLifecycleHook<LoginProps>("login");
+
+/**
+ * Hook to track user logouts
+ *
+ * @example
+ * ```tsx
+ * const logout = useLogout();
+ * logout({ reason: 'manual' });
+ * ```
+ */
+export const useLogout = createLifecycleHook<LogoutProps>("logout");
+
+/**
+ * Hook to track account deletion
+ *
+ * @example
+ * ```tsx
+ * const accountDeleted = useAccountDeleted();
+ * accountDeleted({ reason: 'too_expensive', tenure: 90 });
+ * ```
+ */
+export const useAccountDeleted =
+	createLifecycleHook<AccountDeletedProps>("accountDeleted");
+
+/**
+ * Hook to track subscription start
+ *
+ * @example
+ * ```tsx
+ * const subscriptionStarted = useSubscriptionStarted();
+ * subscriptionStarted({ plan: 'pro', interval: 'yearly', mrr: 99 });
+ * ```
+ */
+export const useSubscriptionStarted =
+	createLifecycleHook<SubscriptionStartedProps>("subscriptionStarted");
+
+/**
+ * Hook to track subscription cancellation
+ *
+ * @example
+ * ```tsx
+ * const subscriptionCancelled = useSubscriptionCancelled();
+ * subscriptionCancelled({ plan: 'pro', reason: 'too_expensive' });
+ * ```
+ */
+export const useSubscriptionCancelled =
+	createLifecycleHook<SubscriptionCancelledProps>("subscriptionCancelled");
+
+/**
+ * Hook to track subscription renewal
+ *
+ * @example
+ * ```tsx
+ * const subscriptionRenewed = useSubscriptionRenewed();
+ * subscriptionRenewed({ plan: 'pro', renewalCount: 12 });
+ * ```
+ */
+export const useSubscriptionRenewed =
+	createLifecycleHook<SubscriptionRenewedProps>("subscriptionRenewed");
+
+/**
+ * Hook to track plan upgrade
+ *
+ * @example
+ * ```tsx
+ * const planUpgraded = usePlanUpgraded();
+ * planUpgraded({ fromPlan: 'starter', toPlan: 'pro', mrrChange: 50 });
+ * ```
+ */
+export const usePlanUpgraded =
+	createLifecycleHook<PlanUpgradedProps>("planUpgraded");
+
+/**
+ * Hook to track plan downgrade
+ *
+ * @example
+ * ```tsx
+ * const planDowngraded = usePlanDowngraded();
+ * planDowngraded({ fromPlan: 'pro', toPlan: 'starter', reason: 'budget' });
+ * ```
+ */
+export const usePlanDowngraded =
+	createLifecycleHook<PlanDowngradedProps>("planDowngraded");
+
+/**
+ * Hook to track trial start
+ *
+ * @example
+ * ```tsx
+ * const trialStarted = useTrialStarted();
+ * trialStarted({ plan: 'pro', trialDays: 14 });
+ * ```
+ */
+export const useTrialStarted =
+	createLifecycleHook<TrialStartedProps>("trialStarted");
+
+/**
+ * Hook to track trial end
+ *
+ * @example
+ * ```tsx
+ * const trialEnded = useTrialEnded();
+ * trialEnded({ plan: 'pro', converted: true });
+ * ```
+ */
+export const useTrialEnded = createLifecycleHook<TrialEndedProps>("trialEnded");
+
+/**
+ * Hook to track invite sent
+ *
+ * @example
+ * ```tsx
+ * const inviteSent = useInviteSent();
+ * inviteSent({ inviteEmail: 'colleague@example.com', role: 'editor' });
+ * ```
+ */
+export const useInviteSent = createLifecycleHook<InviteSentProps>("inviteSent");
+
+/**
+ * Hook to track invite accepted
+ *
+ * @example
+ * ```tsx
+ * const inviteAccepted = useInviteAccepted();
+ * inviteAccepted({ invitedBy: 'user_123', role: 'editor' });
+ * ```
+ */
+export const useInviteAccepted =
+	createLifecycleHook<InviteAcceptedProps>("inviteAccepted");
+
+/**
+ * Hook to track feature activation
+ *
+ * @example
+ * ```tsx
+ * const featureActivated = useFeatureActivated();
+ * featureActivated({ feature: 'dark_mode', isFirstTime: true });
+ * ```
+ */
+export const useFeatureActivated =
+	createLifecycleHook<FeatureActivatedProps>("featureActivated");

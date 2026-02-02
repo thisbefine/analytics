@@ -42,6 +42,24 @@ export type {
 	UserTraits,
 } from "./core/types";
 
+// Lifecycle event types
+export type {
+	AccountDeletedProps,
+	FeatureActivatedProps,
+	InviteAcceptedProps,
+	InviteSentProps,
+	LoginProps,
+	LogoutProps,
+	PlanDowngradedProps,
+	PlanUpgradedProps,
+	SignupProps,
+	SubscriptionCancelledProps,
+	SubscriptionRenewedProps,
+	SubscriptionStartedProps,
+	TrialEndedProps,
+	TrialStartedProps,
+} from "./core/lifecycle";
+
 export type { AnalyticsProps } from "./react/analytics";
 export { Analytics } from "./react/analytics";
 
@@ -58,4 +76,19 @@ export {
 	usePage,
 	useReset,
 	useTrack,
+	// Lifecycle hooks
+	useAccountDeleted,
+	useFeatureActivated,
+	useInviteAccepted,
+	useInviteSent,
+	useLogin,
+	useLogout,
+	usePlanDowngraded,
+	usePlanUpgraded,
+	useSignup,
+	useSubscriptionCancelled,
+	useSubscriptionRenewed,
+	useSubscriptionStarted,
+	useTrialEnded,
+	useTrialStarted,
 } from "./react/hooks";

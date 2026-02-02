@@ -50,6 +50,26 @@ export type {
 
 export type { LogLevel } from "./core/logging";
 
+// Lifecycle event types
+export type {
+	AccountDeletedProps,
+	FeatureActivatedProps,
+	InviteAcceptedProps,
+	InviteSentProps,
+	LoginProps,
+	LogoutProps,
+	PlanDowngradedProps,
+	PlanUpgradedProps,
+	SignupProps,
+	SubscriptionCancelledProps,
+	SubscriptionRenewedProps,
+	SubscriptionStartedProps,
+	TrialEndedProps,
+	TrialStartedProps,
+} from "./core/lifecycle";
+
+export { LIFECYCLE_EVENTS } from "./core/lifecycle";
+
 export type {
 	AccountTraits,
 	Analytics,

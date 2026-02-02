@@ -1,4 +1,20 @@
 import type { ErrorCaptureConfig } from "./errors";
+import type {
+	AccountDeletedProps,
+	FeatureActivatedProps,
+	InviteAcceptedProps,
+	InviteSentProps,
+	LoginProps,
+	LogoutProps,
+	PlanDowngradedProps,
+	PlanUpgradedProps,
+	SignupProps,
+	SubscriptionCancelledProps,
+	SubscriptionRenewedProps,
+	SubscriptionStartedProps,
+	TrialEndedProps,
+	TrialStartedProps,
+} from "./lifecycle";
 import type { LogLevel } from "./logging";
 import { VERSION } from "./version";
 
@@ -304,6 +320,94 @@ export interface Analytics {
 		level: LogLevel,
 		metadata?: Record<string, unknown>,
 	): void;
+
+	// ============================================================
+	// Lifecycle Events
+	// ============================================================
+
+	/**
+	 * Track a user signup
+	 * @param props - Signup properties
+	 */
+	signup(props?: SignupProps): void;
+
+	/**
+	 * Track a user login
+	 * @param props - Login properties
+	 */
+	login(props?: LoginProps): void;
+
+	/**
+	 * Track a user logout
+	 * @param props - Logout properties
+	 */
+	logout(props?: LogoutProps): void;
+
+	/**
+	 * Track account deletion
+	 * @param props - Account deleted properties
+	 */
+	accountDeleted(props?: AccountDeletedProps): void;
+
+	/**
+	 * Track subscription start
+	 * @param props - Subscription properties (plan is required)
+	 */
+	subscriptionStarted(props: SubscriptionStartedProps): void;
+
+	/**
+	 * Track subscription cancellation
+	 * @param props - Cancellation properties (plan is required)
+	 */
+	subscriptionCancelled(props: SubscriptionCancelledProps): void;
+
+	/**
+	 * Track subscription renewal
+	 * @param props - Renewal properties (plan is required)
+	 */
+	subscriptionRenewed(props: SubscriptionRenewedProps): void;
+
+	/**
+	 * Track plan upgrade
+	 * @param props - Upgrade properties (fromPlan, toPlan required)
+	 */
+	planUpgraded(props: PlanUpgradedProps): void;
+
+	/**
+	 * Track plan downgrade
+	 * @param props - Downgrade properties (fromPlan, toPlan required)
+	 */
+	planDowngraded(props: PlanDowngradedProps): void;
+
+	/**
+	 * Track trial start
+	 * @param props - Trial properties (plan is required)
+	 */
+	trialStarted(props: TrialStartedProps): void;
+
+	/**
+	 * Track trial end
+	 * @param props - Trial end properties (plan, converted required)
+	 */
+	trialEnded(props: TrialEndedProps): void;
+
+	/**
+	 * Track invite sent
+	 * @param props - Invite properties
+	 */
+	inviteSent(props?: InviteSentProps): void;
+
+	/**
+	 * Track invite accepted
+	 * @param props - Invite accepted properties
+	 */
+	inviteAccepted(props?: InviteAcceptedProps): void;
+
+	/**
+	 * Track feature activation
+	 * @param props - Feature properties (feature is required)
+	 */
+	featureActivated(props: FeatureActivatedProps): void;
 }
 
 /**
