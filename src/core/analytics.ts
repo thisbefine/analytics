@@ -401,10 +401,6 @@ export class AnalyticsImpl implements Analytics {
 		return context;
 	}
 
-	// ============================================================
-	// Lifecycle Events
-	// ============================================================
-
 	/**
 	 * Track a user signup
 	 */

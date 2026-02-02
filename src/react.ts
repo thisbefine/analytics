@@ -34,7 +34,6 @@
  * @packageDocumentation
  */
 
-// Lifecycle event types
 export type {
 	AccountDeletedProps,
 	FeatureActivatedProps,
@@ -66,7 +65,6 @@ export type { BugReportFABProps } from "./react/bug-report-widget";
 export { BugReportFAB } from "./react/bug-report-widget";
 
 export {
-	// Lifecycle hooks
 	useAccountDeleted,
 	useAnalytics,
 	useCaptureException,

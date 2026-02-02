@@ -47,7 +47,6 @@ export type {
 	ErrorCaptureConfig,
 	ErrorPayload,
 } from "./core/errors";
-// Lifecycle event types
 export type {
 	AccountDeletedProps,
 	FeatureActivatedProps,

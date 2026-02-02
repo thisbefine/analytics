@@ -33,7 +33,6 @@ describe("Bug Report Widget", () => {
 			captureMessage: vi.fn(),
 			addBreadcrumb: vi.fn(),
 			log: vi.fn(),
-			// Lifecycle events
 			signup: vi.fn(),
 			login: vi.fn(),
 			logout: vi.fn(),

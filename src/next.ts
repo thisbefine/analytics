@@ -40,6 +40,23 @@
  * @packageDocumentation
  */
 
+// Lifecycle event types
+export type {
+	AccountDeletedProps,
+	FeatureActivatedProps,
+	InviteAcceptedProps,
+	InviteSentProps,
+	LoginProps,
+	LogoutProps,
+	PlanDowngradedProps,
+	PlanUpgradedProps,
+	SignupProps,
+	SubscriptionCancelledProps,
+	SubscriptionRenewedProps,
+	SubscriptionStartedProps,
+	TrialEndedProps,
+	TrialStartedProps,
+} from "./core/lifecycle";
 export type {
 	AccountTraits,
 	Analytics as AnalyticsInstance,
@@ -52,13 +69,28 @@ export type { NextAnalyticsProps } from "./next/analytics";
 export { Analytics } from "./next/analytics";
 
 export {
+	// Lifecycle hooks
+	useAccountDeleted,
 	useAnalytics,
 	useCaptureException,
+	useFeatureActivated,
 	useGetUser,
 	useGroup,
 	useIdentify,
+	useInviteAccepted,
+	useInviteSent,
 	useLog,
+	useLogin,
+	useLogout,
 	usePage,
+	usePlanDowngraded,
+	usePlanUpgraded,
 	useReset,
+	useSignup,
+	useSubscriptionCancelled,
+	useSubscriptionRenewed,
+	useSubscriptionStarted,
 	useTrack,
+	useTrialEnded,
+	useTrialStarted,
 } from "./react/hooks";

@@ -11,18 +11,12 @@
  *   etc.
  */
 
-// ============================================================
-// EVENT NAMES
-// ============================================================
-
 export const LIFECYCLE_EVENTS = {
-	// User lifecycle
 	SIGNUP: "$signup",
 	LOGIN: "$login",
 	LOGOUT: "$logout",
 	ACCOUNT_DELETED: "$account_deleted",
 
-	// Subscription lifecycle
 	SUBSCRIPTION_STARTED: "$subscription_started",
 	SUBSCRIPTION_CANCELLED: "$subscription_cancelled",
 	SUBSCRIPTION_RENEWED: "$subscription_renewed",
@@ -31,7 +25,6 @@ export const LIFECYCLE_EVENTS = {
 	TRIAL_STARTED: "$trial_started",
 	TRIAL_ENDED: "$trial_ended",
 
-	// Engagement
 	INVITE_SENT: "$invite_sent",
 	INVITE_ACCEPTED: "$invite_accepted",
 	FEATURE_ACTIVATED: "$feature_activated",
@@ -39,10 +32,6 @@ export const LIFECYCLE_EVENTS = {
 
 export type LifecycleEventName =
 	(typeof LIFECYCLE_EVENTS)[keyof typeof LIFECYCLE_EVENTS];
-
-// ============================================================
-// EVENT PROPERTY TYPES
-// ============================================================
 
 /**
  * Common properties available on all lifecycle events
@@ -57,10 +46,6 @@ interface BaseLifecycleProps {
 	/** Allow additional custom properties */
 	[key: string]: unknown;
 }
-
-// ------------------------------------------------------------
-// User Lifecycle
-// ------------------------------------------------------------
 
 /**
  * Properties for $signup event
@@ -103,10 +88,6 @@ export interface AccountDeletedProps extends BaseLifecycleProps {
 	/** Days since signup */
 	tenure?: number;
 }
-
-// ------------------------------------------------------------
-// Subscription Lifecycle
-// ------------------------------------------------------------
 
 /**
  * Properties for $subscription_started event
@@ -203,10 +184,6 @@ export interface TrialEndedProps extends BaseLifecycleProps {
 	/** Reason if not converted */
 	reason?: string;
 }
-
-// ------------------------------------------------------------
-// Engagement
-// ------------------------------------------------------------
 
 /**
  * Properties for $invite_sent event

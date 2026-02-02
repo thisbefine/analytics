@@ -223,10 +223,6 @@ export const useLog = () => {
 	);
 };
 
-// ============================================================
-// Lifecycle Event Hooks
-// ============================================================
-
 /**
  * Factory helper to create lifecycle hooks
  */

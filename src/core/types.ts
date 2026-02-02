@@ -321,10 +321,6 @@ export interface Analytics {
 		metadata?: Record<string, unknown>,
 	): void;
 
-	// ============================================================
-	// Lifecycle Events
-	// ============================================================
-
 	/**
 	 * Track a user signup
 	 * @param props - Signup properties
