@@ -60,9 +60,19 @@ export type {
 
 export type { AnalyticsProps } from "./react/analytics";
 export { Analytics } from "./react/analytics";
-
 export type { BugReportFABProps } from "./react/bug-report-widget";
 export { BugReportFAB } from "./react/bug-report-widget";
+export type {
+	AnalyticsContextValue,
+	AnalyticsProviderProps,
+} from "./react/context";
+export {
+	AnalyticsContext,
+	AnalyticsProvider,
+	useAnalyticsContext,
+	useAnalyticsReady,
+	useIsClient,
+} from "./react/context";
 
 export {
 	useAccountDeleted,

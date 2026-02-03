@@ -19,6 +19,56 @@ import type { LogLevel } from "./logging";
 import { VERSION } from "./version";
 
 /**
+ * Flush result returned when flushing the event queue
+ */
+export interface FlushResult {
+	/** Whether the flush was successful */
+	success: boolean;
+	/** Number of events that were sent */
+	eventCount: number;
+	/** Errors encountered during flush (if any) */
+	errors?: Error[];
+}
+
+/**
+ * Error callback for handling flush failures
+ */
+export type OnFlushError = (
+	error: Error,
+	failedEvents: AnalyticsEvent[],
+) => void;
+
+/**
+ * Callback to modify or filter events before they are queued.
+ * Return the modified event, or null to discard it.
+ * Useful for PII scrubbing, adding global properties, or filtering events.
+ */
+export type BeforeSend = (event: AnalyticsEvent) => AnalyticsEvent | null;
+
+/**
+ * Consent category types for granular tracking control
+ */
+export type ConsentCategory = "analytics" | "marketing" | "functional";
+
+/**
+ * Consent configuration for granular tracking control
+ */
+export interface ConsentConfig {
+	/**
+	 * Which consent categories are enabled.
+	 * Default: all categories enabled.
+	 */
+	categories?: ConsentCategory[];
+
+	/**
+	 * Default consent state before user makes a choice.
+	 * If false, no tracking until explicit consent.
+	 * Default: true (tracks by default, respects DNT).
+	 */
+	defaultConsent?: boolean;
+}
+
+/**
  * Configuration options for the analytics SDK
  */
 export interface AnalyticsConfig {
@@ -51,6 +101,71 @@ export interface AnalyticsConfig {
 
 	/** Error capture configuration */
 	errors?: ErrorCaptureConfig;
+
+	/** Callback invoked when flush fails. Receives error and failed events. */
+	onFlushError?: OnFlushError;
+
+	/** Persist queue to storage for crash recovery. Default: true */
+	persistQueue?: boolean;
+
+	/** Maximum number of events to persist. Default: 1000 */
+	maxPersistedEvents?: number;
+
+	/**
+	 * Callback to modify or filter events before they are queued.
+	 * Return the modified event to send it, or null to discard it.
+	 * Useful for PII scrubbing, adding global properties, or filtering.
+	 */
+	beforeSend?: BeforeSend;
+
+	/**
+	 * How often to rotate the anonymous ID (in milliseconds).
+	 * Default: 30 days (2592000000ms). Set to 0 to disable rotation.
+	 * Rotation helps with privacy compliance by limiting long-term tracking.
+	 */
+	anonymousIdMaxAge?: number;
+
+	/**
+	 * Circuit breaker: Number of consecutive failures before opening the circuit.
+	 * When open, the SDK stops attempting to send events until the reset timeout.
+	 * Default: 5 consecutive failures.
+	 */
+	circuitBreakerThreshold?: number;
+
+	/**
+	 * Circuit breaker: Time in ms to wait before attempting to close the circuit.
+	 * Default: 30000 (30 seconds).
+	 */
+	circuitBreakerResetTimeout?: number;
+
+	/**
+	 * Consent categories configuration.
+	 * Allows granular control over what types of tracking are enabled.
+	 */
+	consent?: ConsentConfig;
+
+	/**
+	 * Maximum events allowed per second.
+	 * Events exceeding this limit will be dropped.
+	 * Default: 100 events/second. Set to 0 to disable rate limiting.
+	 */
+	maxEventsPerSecond?: number;
+
+	/**
+	 * Sample rate for events (0 to 1).
+	 * 1 = track all events (default)
+	 * 0.5 = track 50% of events
+	 * 0.1 = track 10% of events
+	 * Useful for high-traffic sites to reduce volume.
+	 */
+	sampleRate?: number;
+
+	/**
+	 * Output debug logs as structured JSON.
+	 * Useful for log aggregation systems (e.g., Datadog, Splunk).
+	 * Default: false (human-readable format)
+	 */
+	structuredLogging?: boolean;
 }
 
 /**
@@ -67,6 +182,17 @@ export interface ResolvedConfig {
 	respectDNT: boolean;
 	maxRetries: number;
 	errors?: ErrorCaptureConfig;
+	onFlushError?: OnFlushError;
+	persistQueue: boolean;
+	maxPersistedEvents: number;
+	beforeSend?: BeforeSend;
+	anonymousIdMaxAge: number;
+	circuitBreakerThreshold: number;
+	circuitBreakerResetTimeout: number;
+	consent?: ConsentConfig;
+	maxEventsPerSecond: number;
+	sampleRate: number;
+	structuredLogging: boolean;
 }
 
 /**
@@ -97,6 +223,8 @@ export interface EventContext {
  */
 export interface BaseEvent {
 	type: "track" | "identify" | "page" | "group";
+	/** Unique message ID for idempotency/deduplication */
+	messageId: string;
 	timestamp: string;
 	anonymousId: string;
 	userId?: string;
@@ -257,8 +385,16 @@ export interface Analytics {
 
 	/**
 	 * Manually flush the event queue
+	 * @returns Flush result with success status, event count, and any errors
 	 */
-	flush(): Promise<void>;
+	flush(): Promise<FlushResult>;
+
+	/**
+	 * Destroy the analytics instance, cleaning up all resources.
+	 * Call this when unmounting or when you need to reinitialize.
+	 * Flushes remaining events before cleanup.
+	 */
+	destroy(): Promise<void>;
 
 	/**
 	 * Opt out of tracking
@@ -274,6 +410,35 @@ export interface Analytics {
 	 * Check if user has opted out
 	 */
 	isOptedOut(): boolean;
+
+	/**
+	 * Check if a specific consent category is enabled
+	 * @param category - The consent category to check
+	 */
+	hasConsent(category: ConsentCategory): boolean;
+
+	/**
+	 * Get all currently consented categories
+	 */
+	getConsentedCategories(): ConsentCategory[];
+
+	/**
+	 * Set consent for specific categories (replaces current consent)
+	 * @param categories - Array of categories to enable
+	 */
+	setConsent(categories: ConsentCategory[]): void;
+
+	/**
+	 * Grant consent for a specific category
+	 * @param category - The category to grant consent for
+	 */
+	grantConsent(category: ConsentCategory): void;
+
+	/**
+	 * Revoke consent for a specific category
+	 * @param category - The category to revoke consent for
+	 */
+	revokeConsent(category: ConsentCategory): void;
 
 	/**
 	 * Get current user state
@@ -434,6 +599,14 @@ export const DEFAULT_CONFIG = {
 	debug: false,
 	respectDNT: true,
 	maxRetries: 3,
+	persistQueue: true,
+	maxPersistedEvents: 1000,
+	anonymousIdMaxAge: 30 * 24 * 60 * 60 * 1000,
+	circuitBreakerThreshold: 5,
+	circuitBreakerResetTimeout: 30 * 1000,
+	maxEventsPerSecond: 100,
+	sampleRate: 1,
+	structuredLogging: false,
 } as const;
 
 /**
@@ -441,6 +614,7 @@ export const DEFAULT_CONFIG = {
  */
 export const STORAGE_KEYS = {
 	ANONYMOUS_ID: "tif_anonymous_id",
+	ANONYMOUS_ID_CREATED: "tif_anonymous_id_created",
 	USER_ID: "tif_user_id",
 	USER_TRAITS: "tif_user_traits",
 	ACCOUNT_ID: "tif_account_id",
@@ -448,4 +622,5 @@ export const STORAGE_KEYS = {
 	SESSION_ID: "tif_session_id",
 	LAST_ACTIVITY: "tif_last_activity",
 	OPT_OUT: "tif_opt_out",
+	QUEUE: "tif_event_queue",
 } as const;

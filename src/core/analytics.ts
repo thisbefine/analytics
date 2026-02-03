@@ -22,12 +22,15 @@ import { log as sendLog } from "./logging";
 import { Privacy } from "./privacy";
 import { Queue } from "./queue";
 import { Session } from "./session";
-import { Storage } from "./storage";
+import { generateId, Storage } from "./storage";
 import type {
 	AccountTraits,
 	Analytics,
 	AnalyticsConfig,
+	AnalyticsEvent,
+	ConsentCategory,
 	EventContext,
+	FlushResult,
 	GroupEvent,
 	IdentifyEvent,
 	PageEvent,
@@ -66,19 +69,28 @@ export class AnalyticsImpl implements Analytics {
 	private initialized = false;
 	private logger: Logger;
 
+	private eventTimestamps: number[] = [];
+	private rateLimitWarned = false;
+
 	constructor(config: AnalyticsConfig) {
 		this.config = this.resolveConfig(config);
-		this.logger = createLogger("Analytics", this.config.debug);
+		this.logger = createLogger(
+			"Analytics",
+			this.config.debug,
+			this.config.structuredLogging,
+		);
 		this.storage = new Storage(this.config.cookieDomain);
 		this.session = new Session(
 			this.storage,
 			this.config.sessionTimeout,
 			this.config.debug,
+			this.config.anonymousIdMaxAge,
 		);
 		this.privacy = new Privacy(
 			this.storage,
 			this.config.respectDNT,
 			this.config.debug,
+			this.config.consent,
 		);
 		this.queue = new Queue(this.config);
 
@@ -115,7 +127,106 @@ export class AnalyticsImpl implements Analytics {
 			respectDNT: config.respectDNT ?? DEFAULT_CONFIG.respectDNT,
 			maxRetries: config.maxRetries ?? DEFAULT_CONFIG.maxRetries,
 			errors: config.errors,
+			onFlushError: config.onFlushError,
+			persistQueue: config.persistQueue ?? DEFAULT_CONFIG.persistQueue,
+			maxPersistedEvents:
+				config.maxPersistedEvents ?? DEFAULT_CONFIG.maxPersistedEvents,
+			beforeSend: config.beforeSend,
+			anonymousIdMaxAge:
+				config.anonymousIdMaxAge ?? DEFAULT_CONFIG.anonymousIdMaxAge,
+			circuitBreakerThreshold:
+				config.circuitBreakerThreshold ??
+				DEFAULT_CONFIG.circuitBreakerThreshold,
+			circuitBreakerResetTimeout:
+				config.circuitBreakerResetTimeout ??
+				DEFAULT_CONFIG.circuitBreakerResetTimeout,
+			consent: config.consent,
+			maxEventsPerSecond:
+				config.maxEventsPerSecond ?? DEFAULT_CONFIG.maxEventsPerSecond,
+			sampleRate: Math.max(
+				0,
+				Math.min(1, config.sampleRate ?? DEFAULT_CONFIG.sampleRate),
+			),
+			structuredLogging:
+				config.structuredLogging ?? DEFAULT_CONFIG.structuredLogging,
 		};
+	}
+
+	/**
+	 * Queue an event, applying sampling, rate limiting and beforeSend hook if configured
+	 */
+	private queueEvent(event: AnalyticsEvent): void {
+		if (!this.shouldSample()) {
+			this.logger.log("Event dropped by sampling");
+			return;
+		}
+
+		if (!this.checkRateLimit()) {
+			return;
+		}
+
+		let finalEvent: AnalyticsEvent | null = event;
+
+		if (this.config.beforeSend) {
+			try {
+				finalEvent = this.config.beforeSend(event);
+				if (finalEvent === null) {
+					this.logger.log("Event discarded by beforeSend hook:", event.type);
+					return;
+				}
+			} catch (error) {
+				this.logger.warn("beforeSend hook threw an error:", error);
+
+				finalEvent = event;
+			}
+		}
+
+		this.queue.push(finalEvent);
+	}
+
+	/**
+	 * Check if event should be sampled based on sampleRate
+	 */
+	private shouldSample(): boolean {
+		const sampleRate = this.config.sampleRate;
+
+		if (sampleRate >= 1) return true;
+		if (sampleRate <= 0) return false;
+		return Math.random() < sampleRate;
+	}
+
+	/**
+	 * Check if event should be allowed based on rate limit
+	 * Uses a sliding window algorithm
+	 */
+	private checkRateLimit(): boolean {
+		const maxEvents = this.config.maxEventsPerSecond;
+
+		if (maxEvents <= 0) {
+			return true;
+		}
+
+		const now = Date.now();
+		const windowStart = now - 1000;
+
+		this.eventTimestamps = this.eventTimestamps.filter((t) => t > windowStart);
+
+		if (this.eventTimestamps.length >= maxEvents) {
+			if (!this.rateLimitWarned) {
+				this.logger.warn(
+					`Rate limit exceeded (${maxEvents} events/second). Events are being dropped.`,
+				);
+				this.rateLimitWarned = true;
+
+				setTimeout(() => {
+					this.rateLimitWarned = false;
+				}, 5000);
+			}
+			return false;
+		}
+
+		this.eventTimestamps.push(now);
+		return true;
 	}
 
 	/**
@@ -138,6 +249,7 @@ export class AnalyticsImpl implements Analytics {
 
 		const trackEvent: TrackEvent = {
 			type: "track",
+			messageId: generateId(),
 			event,
 			properties,
 			timestamp: new Date().toISOString(),
@@ -148,7 +260,7 @@ export class AnalyticsImpl implements Analytics {
 			context: this.getContext(),
 		};
 
-		this.queue.push(trackEvent);
+		this.queueEvent(trackEvent);
 		this.session.updateLastActivity();
 	}
 
@@ -177,6 +289,7 @@ export class AnalyticsImpl implements Analytics {
 
 		const identifyEvent: IdentifyEvent = {
 			type: "identify",
+			messageId: generateId(),
 			userId,
 			traits,
 			timestamp: new Date().toISOString(),
@@ -186,7 +299,7 @@ export class AnalyticsImpl implements Analytics {
 			context: this.getContext(),
 		};
 
-		this.queue.push(identifyEvent);
+		this.queueEvent(identifyEvent);
 		this.session.updateLastActivity();
 	}
 
@@ -208,6 +321,7 @@ export class AnalyticsImpl implements Analytics {
 
 		const pageEvent: PageEvent = {
 			type: "page",
+			messageId: generateId(),
 			name,
 			properties,
 			url,
@@ -220,7 +334,7 @@ export class AnalyticsImpl implements Analytics {
 			context: this.getContext(),
 		};
 
-		this.queue.push(pageEvent);
+		this.queueEvent(pageEvent);
 		this.session.updateLastActivity();
 	}
 
@@ -249,6 +363,7 @@ export class AnalyticsImpl implements Analytics {
 
 		const groupEvent: GroupEvent = {
 			type: "group",
+			messageId: generateId(),
 			accountId,
 			traits,
 			timestamp: new Date().toISOString(),
@@ -258,7 +373,7 @@ export class AnalyticsImpl implements Analytics {
 			context: this.getContext(),
 		};
 
-		this.queue.push(groupEvent);
+		this.queueEvent(groupEvent);
 		this.session.updateLastActivity();
 	}
 
@@ -318,9 +433,33 @@ export class AnalyticsImpl implements Analytics {
 
 	/**
 	 * Manually flush the event queue
+	 * @returns FlushResult with success status, event count, and any errors
 	 */
-	async flush(): Promise<void> {
-		await this.queue.flush();
+	async flush(): Promise<FlushResult> {
+		return this.queue.flush();
+	}
+
+	/**
+	 * Destroy the analytics instance, cleaning up all resources.
+	 * Flushes remaining events before cleanup.
+	 * After calling this, the instance should not be used.
+	 */
+	async destroy(): Promise<void> {
+		this.logger.log("Destroying analytics instance...");
+
+		await this.queue.destroy();
+
+		this.session.destroy();
+
+		this.errorCapture?.uninstall();
+
+		this.initialized = false;
+
+		if (globalInstance === this) {
+			globalInstance = null;
+		}
+
+		this.logger.log("Analytics instance destroyed");
 	}
 
 	/**
@@ -342,6 +481,41 @@ export class AnalyticsImpl implements Analytics {
 	 */
 	isOptedOut(): boolean {
 		return this.privacy.isOptedOut();
+	}
+
+	/**
+	 * Check if a specific consent category is enabled
+	 */
+	hasConsent(category: ConsentCategory): boolean {
+		return this.privacy.hasConsent(category);
+	}
+
+	/**
+	 * Get all currently consented categories
+	 */
+	getConsentedCategories(): ConsentCategory[] {
+		return this.privacy.getConsentedCategories();
+	}
+
+	/**
+	 * Set consent for specific categories
+	 */
+	setConsent(categories: ConsentCategory[]): void {
+		this.privacy.setConsent(categories);
+	}
+
+	/**
+	 * Grant consent for a specific category
+	 */
+	grantConsent(category: ConsentCategory): void {
+		this.privacy.grantConsent(category);
+	}
+
+	/**
+	 * Revoke consent for a specific category
+	 */
+	revokeConsent(category: ConsentCategory): void {
+		this.privacy.revokeConsent(category);
 	}
 
 	/**
@@ -434,7 +608,8 @@ export class AnalyticsImpl implements Analytics {
 	 */
 	subscriptionStarted(props: SubscriptionStartedProps): void {
 		if (!props?.plan) {
-			this.logger.warn("subscriptionStarted: plan is required");
+			this.logger.warn("subscriptionStarted: plan is required, event not sent");
+			return;
 		}
 		this.track(LIFECYCLE_EVENTS.SUBSCRIPTION_STARTED, props);
 	}
@@ -444,7 +619,10 @@ export class AnalyticsImpl implements Analytics {
 	 */
 	subscriptionCancelled(props: SubscriptionCancelledProps): void {
 		if (!props?.plan) {
-			this.logger.warn("subscriptionCancelled: plan is required");
+			this.logger.warn(
+				"subscriptionCancelled: plan is required, event not sent",
+			);
+			return;
 		}
 		this.track(LIFECYCLE_EVENTS.SUBSCRIPTION_CANCELLED, props);
 	}
@@ -454,7 +632,8 @@ export class AnalyticsImpl implements Analytics {
 	 */
 	subscriptionRenewed(props: SubscriptionRenewedProps): void {
 		if (!props?.plan) {
-			this.logger.warn("subscriptionRenewed: plan is required");
+			this.logger.warn("subscriptionRenewed: plan is required, event not sent");
+			return;
 		}
 		this.track(LIFECYCLE_EVENTS.SUBSCRIPTION_RENEWED, props);
 	}
@@ -464,7 +643,10 @@ export class AnalyticsImpl implements Analytics {
 	 */
 	planUpgraded(props: PlanUpgradedProps): void {
 		if (!props?.fromPlan || !props?.toPlan) {
-			this.logger.warn("planUpgraded: fromPlan and toPlan are required");
+			this.logger.warn(
+				"planUpgraded: fromPlan and toPlan are required, event not sent",
+			);
+			return;
 		}
 		this.track(LIFECYCLE_EVENTS.PLAN_UPGRADED, props);
 	}
@@ -474,7 +656,10 @@ export class AnalyticsImpl implements Analytics {
 	 */
 	planDowngraded(props: PlanDowngradedProps): void {
 		if (!props?.fromPlan || !props?.toPlan) {
-			this.logger.warn("planDowngraded: fromPlan and toPlan are required");
+			this.logger.warn(
+				"planDowngraded: fromPlan and toPlan are required, event not sent",
+			);
+			return;
 		}
 		this.track(LIFECYCLE_EVENTS.PLAN_DOWNGRADED, props);
 	}
@@ -484,7 +669,8 @@ export class AnalyticsImpl implements Analytics {
 	 */
 	trialStarted(props: TrialStartedProps): void {
 		if (!props?.plan) {
-			this.logger.warn("trialStarted: plan is required");
+			this.logger.warn("trialStarted: plan is required, event not sent");
+			return;
 		}
 		this.track(LIFECYCLE_EVENTS.TRIAL_STARTED, props);
 	}
@@ -494,7 +680,10 @@ export class AnalyticsImpl implements Analytics {
 	 */
 	trialEnded(props: TrialEndedProps): void {
 		if (!props?.plan || props?.converted === undefined) {
-			this.logger.warn("trialEnded: plan and converted are required");
+			this.logger.warn(
+				"trialEnded: plan and converted are required, event not sent",
+			);
+			return;
 		}
 		this.track(LIFECYCLE_EVENTS.TRIAL_ENDED, props);
 	}
@@ -518,7 +707,8 @@ export class AnalyticsImpl implements Analytics {
 	 */
 	featureActivated(props: FeatureActivatedProps): void {
 		if (!props?.feature) {
-			this.logger.warn("featureActivated: feature is required");
+			this.logger.warn("featureActivated: feature is required, event not sent");
+			return;
 		}
 		this.track(LIFECYCLE_EVENTS.FEATURE_ACTIVATED, props);
 	}

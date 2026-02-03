@@ -52,6 +52,14 @@ describe("ErrorCapture", () => {
 			debug: false,
 			respectDNT: true,
 			maxRetries: 3,
+			persistQueue: false,
+			maxPersistedEvents: 1000,
+			anonymousIdMaxAge: 0,
+			circuitBreakerThreshold: 5,
+			circuitBreakerResetTimeout: 30000,
+			maxEventsPerSecond: 0,
+			sampleRate: 1,
+			structuredLogging: false,
 			...overrides,
 		};
 	}

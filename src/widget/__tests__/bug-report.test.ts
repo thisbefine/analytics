@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Analytics } from "../../core/types";
+import type { Analytics, ConsentCategory } from "../../core/types";
 import {
 	getLastFetchCall,
 	mockFetch,
@@ -21,10 +21,18 @@ describe("Bug Report Widget", () => {
 			page: vi.fn(),
 			group: vi.fn(),
 			reset: vi.fn(),
-			flush: vi.fn(() => Promise.resolve()),
+			flush: vi.fn(() => Promise.resolve({ success: true, eventCount: 0 })),
+			destroy: vi.fn(() => Promise.resolve()),
 			optOut: vi.fn(),
 			optIn: vi.fn(),
 			isOptedOut: vi.fn(() => false),
+			hasConsent: vi.fn(() => true),
+			getConsentedCategories: vi.fn(
+				() => ["analytics", "marketing", "functional"] as ConsentCategory[],
+			),
+			setConsent: vi.fn(),
+			grantConsent: vi.fn(),
+			revokeConsent: vi.fn(),
 			getUser: vi.fn(() => ({
 				anonymousId: "anon_test_123",
 				userId: "user_test_456",

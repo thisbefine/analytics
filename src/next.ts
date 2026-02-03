@@ -40,7 +40,6 @@
  * @packageDocumentation
  */
 
-// Lifecycle event types
 export type {
 	AccountDeletedProps,
 	FeatureActivatedProps,
@@ -68,8 +67,19 @@ export type {
 export type { NextAnalyticsProps } from "./next/analytics";
 export { Analytics } from "./next/analytics";
 
+export type {
+	AnalyticsContextValue,
+	AnalyticsProviderProps,
+} from "./react/context";
 export {
-	// Lifecycle hooks
+	AnalyticsContext,
+	AnalyticsProvider,
+	useAnalyticsContext,
+	useAnalyticsReady,
+	useIsClient,
+} from "./react/context";
+
+export {
 	useAccountDeleted,
 	useAnalytics,
 	useCaptureException,

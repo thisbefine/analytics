@@ -543,8 +543,9 @@ export class ErrorCapture {
 
 	private async postError(payload: ErrorPayload): Promise<void> {
 		const url = `${this.config.host}/api/v1/error`;
+		const maxAttempts = this.config.maxRetries + 1;
 
-		for (let attempt = 0; attempt < 2; attempt++) {
+		for (let attempt = 0; attempt < maxAttempts; attempt++) {
 			try {
 				const response = await fetch(url, {
 					method: "POST",
@@ -569,7 +570,12 @@ export class ErrorCapture {
 					return;
 				}
 			} catch {
-				this.logger.log("Error send failed, attempt", attempt + 1);
+				this.logger.log(
+					"Error send failed, attempt",
+					attempt + 1,
+					"of",
+					maxAttempts,
+				);
 			}
 
 			if (attempt === 0) {

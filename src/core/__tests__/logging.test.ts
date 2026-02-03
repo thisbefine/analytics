@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type LogLevel, log } from "../logging";
-import type { Analytics } from "../types";
+import type { Analytics, ConsentCategory } from "../types";
 
 describe("log() Function", () => {
 	let mockAnalytics: Analytics;
@@ -20,10 +20,18 @@ describe("log() Function", () => {
 			page: vi.fn(),
 			group: vi.fn(),
 			reset: vi.fn(),
-			flush: vi.fn(() => Promise.resolve()),
+			flush: vi.fn(() => Promise.resolve({ success: true, eventCount: 0 })),
+			destroy: vi.fn(() => Promise.resolve()),
 			optOut: vi.fn(),
 			optIn: vi.fn(),
 			isOptedOut: vi.fn(() => false),
+			hasConsent: vi.fn(() => true),
+			getConsentedCategories: vi.fn(
+				() => ["analytics", "marketing", "functional"] as ConsentCategory[],
+			),
+			setConsent: vi.fn(),
+			grantConsent: vi.fn(),
+			revokeConsent: vi.fn(),
 			getUser: vi.fn(() => ({ anonymousId: "anon_123" })),
 			captureException: vi.fn(),
 			captureMessage: vi.fn(),

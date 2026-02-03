@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import { getAnalytics } from "../core/analytics";
 import type {
 	AccountDeletedProps,
 	FeatureActivatedProps,
@@ -20,21 +19,7 @@ import type {
 } from "../core/lifecycle";
 import type { LogLevel } from "../core/logging";
 import type { AccountTraits, Analytics, UserTraits } from "../core/types";
-
-/**
- * Get the analytics instance, throwing if not initialized
- */
-const getAnalyticsOrThrow = (): Analytics => {
-	const analytics = getAnalytics();
-
-	if (!analytics) {
-		throw new Error(
-			"Analytics not initialized. Make sure you have added <Analytics /> to your app.",
-		);
-	}
-
-	return analytics;
-};
+import { useAnalyticsContext } from "./context";
 
 /**
  * Hook to access the Analytics instance
@@ -51,7 +36,15 @@ const getAnalyticsOrThrow = (): Analytics => {
  * ```
  */
 export const useAnalytics = (): Analytics => {
-	return getAnalyticsOrThrow();
+	const { analytics } = useAnalyticsContext();
+
+	if (!analytics) {
+		throw new Error(
+			"Analytics not initialized. Make sure you have added <AnalyticsProvider> to your app.",
+		);
+	}
+
+	return analytics;
 };
 
 /**
@@ -74,11 +67,13 @@ export const useAnalytics = (): Analytics => {
  * ```
  */
 export const useTrack = (eventName: string) => {
+	const { analytics } = useAnalyticsContext();
+
 	return useCallback(
 		(properties?: Record<string, unknown>) => {
-			getAnalytics()?.track(eventName, properties);
+			analytics?.track(eventName, properties);
 		},
-		[eventName],
+		[analytics, eventName],
 	);
 };
 
@@ -100,9 +95,14 @@ export const useTrack = (eventName: string) => {
  * ```
  */
 export const useIdentify = () => {
-	return useCallback((userId: string, traits?: UserTraits) => {
-		getAnalytics()?.identify(userId, traits);
-	}, []);
+	const { analytics } = useAnalyticsContext();
+
+	return useCallback(
+		(userId: string, traits?: UserTraits) => {
+			analytics?.identify(userId, traits);
+		},
+		[analytics],
+	);
 };
 
 /**
@@ -123,9 +123,14 @@ export const useIdentify = () => {
  * ```
  */
 export const useGroup = () => {
-	return useCallback((accountId: string, traits?: AccountTraits) => {
-		getAnalytics()?.group(accountId, traits);
-	}, []);
+	const { analytics } = useAnalyticsContext();
+
+	return useCallback(
+		(accountId: string, traits?: AccountTraits) => {
+			analytics?.group(accountId, traits);
+		},
+		[analytics],
+	);
 };
 
 /**
@@ -143,9 +148,14 @@ export const useGroup = () => {
  * ```
  */
 export const usePage = () => {
-	return useCallback((name?: string, properties?: Record<string, unknown>) => {
-		getAnalytics()?.page(name, properties);
-	}, []);
+	const { analytics } = useAnalyticsContext();
+
+	return useCallback(
+		(name?: string, properties?: Record<string, unknown>) => {
+			analytics?.page(name, properties);
+		},
+		[analytics],
+	);
 };
 
 /**
@@ -162,9 +172,11 @@ export const usePage = () => {
  * ```
  */
 export const useReset = () => {
+	const { analytics } = useAnalyticsContext();
+
 	return useCallback(() => {
-		getAnalytics()?.reset();
-	}, []);
+		analytics?.reset();
+	}, [analytics]);
 };
 
 /**
@@ -181,9 +193,11 @@ export const useReset = () => {
  * ```
  */
 export const useGetUser = () => {
+	const { analytics } = useAnalyticsContext();
+
 	return useCallback(() => {
-		return getAnalytics()?.getUser();
-	}, []);
+		return analytics?.getUser();
+	}, [analytics]);
 };
 
 /**
@@ -199,9 +213,14 @@ export const useGetUser = () => {
  * ```
  */
 export const useCaptureException = () => {
-	return useCallback((error: Error, context?: Record<string, unknown>) => {
-		getAnalytics()?.captureException(error, context);
-	}, []);
+	const { analytics } = useAnalyticsContext();
+
+	return useCallback(
+		(error: Error, context?: Record<string, unknown>) => {
+			analytics?.captureException(error, context);
+		},
+		[analytics],
+	);
 };
 
 /**
@@ -215,11 +234,13 @@ export const useCaptureException = () => {
  * ```
  */
 export const useLog = () => {
+	const { analytics } = useAnalyticsContext();
+
 	return useCallback(
 		(message: string, level: LogLevel, metadata?: Record<string, unknown>) => {
-			getAnalytics()?.log(message, level, metadata);
+			analytics?.log(message, level, metadata);
 		},
-		[],
+		[analytics],
 	);
 };
 
@@ -227,13 +248,18 @@ export const useLog = () => {
  * Factory helper to create lifecycle hooks
  */
 const createLifecycleHook = <T>(method: keyof Analytics) => {
-	return () =>
-		useCallback((props?: T) => {
-			const analytics = getAnalytics();
-			if (analytics && method in analytics) {
-				(analytics[method] as (p?: T) => void)?.(props);
-			}
-		}, []);
+	return () => {
+		const { analytics } = useAnalyticsContext();
+
+		return useCallback(
+			(props?: T) => {
+				if (analytics && method in analytics) {
+					(analytics[method] as (p?: T) => void)?.(props);
+				}
+			},
+			[analytics],
+		);
+	};
 };
 
 /**

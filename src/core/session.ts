@@ -19,7 +19,7 @@ interface SessionMessage {
 
 /**
  * Session manager handles:
- * - Anonymous ID generation and persistence
+ * - Anonymous ID generation and persistence (with optional rotation)
  * - User ID management
  * - Session ID with timeout-based regeneration
  * - User traits storage
@@ -28,6 +28,7 @@ interface SessionMessage {
 export class Session {
 	private storage: StorageInterface;
 	private sessionTimeout: number;
+	private anonymousIdMaxAge: number;
 	private currentSessionId: string | null = null;
 	private logger: Logger;
 	private broadcastChannel: BroadcastChannel | null = null;
@@ -36,9 +37,11 @@ export class Session {
 		storage: StorageInterface,
 		sessionTimeout: number,
 		debug = false,
+		anonymousIdMaxAge = 0,
 	) {
 		this.storage = storage;
 		this.sessionTimeout = sessionTimeout;
+		this.anonymousIdMaxAge = anonymousIdMaxAge;
 		this.logger = createLogger("Session", debug);
 
 		this.ensureSession();
@@ -111,15 +114,32 @@ export class Session {
 	}
 
 	/**
-	 * Get the anonymous ID, generating one if it doesn't exist
+	 * Get the anonymous ID, generating one if it doesn't exist or has expired.
+	 * If anonymousIdMaxAge is set, the ID will be rotated after that duration.
 	 */
 	getAnonymousId(): string {
 		let anonymousId = this.storage.get(STORAGE_KEYS.ANONYMOUS_ID);
+		const createdAtStr = this.storage.get(STORAGE_KEYS.ANONYMOUS_ID_CREATED);
+		const createdAt = createdAtStr ? parseInt(createdAtStr, 10) : 0;
+		const now = Date.now();
 
-		if (!anonymousId) {
+		const needsRotation =
+			this.anonymousIdMaxAge > 0 &&
+			createdAt > 0 &&
+			now - createdAt > this.anonymousIdMaxAge;
+
+		if (!anonymousId || needsRotation) {
 			anonymousId = generateId();
 			this.storage.set(STORAGE_KEYS.ANONYMOUS_ID, anonymousId);
-			this.logger.log("Generated new anonymous ID:", anonymousId);
+			this.storage.set(STORAGE_KEYS.ANONYMOUS_ID_CREATED, now.toString());
+			this.logger.log(
+				needsRotation
+					? "Rotated anonymous ID (max age exceeded):"
+					: "Generated new anonymous ID:",
+				anonymousId,
+			);
+		} else if (!createdAt) {
+			this.storage.set(STORAGE_KEYS.ANONYMOUS_ID_CREATED, now.toString());
 		}
 
 		return anonymousId;
@@ -262,6 +282,7 @@ export class Session {
 
 		const newAnonymousId = generateId();
 		this.storage.set(STORAGE_KEYS.ANONYMOUS_ID, newAnonymousId);
+		this.storage.set(STORAGE_KEYS.ANONYMOUS_ID_CREATED, Date.now().toString());
 
 		const newSessionId = generateId();
 		this.currentSessionId = newSessionId;

@@ -263,6 +263,7 @@ describe("Privacy", () => {
 				optedOut: false,
 				respectDNT: true,
 				trackingAllowed: true,
+				consentCategories: ["analytics", "marketing", "functional"],
 			});
 		});
 

@@ -40,6 +40,14 @@ describe("Queue", () => {
 			debug: false,
 			respectDNT: true,
 			maxRetries: 3,
+			persistQueue: false,
+			maxPersistedEvents: 1000,
+			anonymousIdMaxAge: 0,
+			circuitBreakerThreshold: 5,
+			circuitBreakerResetTimeout: 30000,
+			maxEventsPerSecond: 0,
+			sampleRate: 1,
+			structuredLogging: false,
 			...overrides,
 		};
 	}
@@ -50,6 +58,7 @@ describe("Queue", () => {
 	): TrackEvent {
 		return {
 			type: "track",
+			messageId: `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`,
 			event,
 			properties,
 			timestamp: new Date().toISOString(),
@@ -75,6 +84,7 @@ describe("Queue", () => {
 	function createPageEvent(name?: string): PageEvent {
 		return {
 			type: "page",
+			messageId: `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`,
 			name,
 			url: "https://example.com/page",
 			referrer: "https://google.com",
@@ -103,6 +113,7 @@ describe("Queue", () => {
 	): IdentifyEvent {
 		return {
 			type: "identify",
+			messageId: `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`,
 			userId,
 			traits,
 			timestamp: new Date().toISOString(),
@@ -123,6 +134,7 @@ describe("Queue", () => {
 	): GroupEvent {
 		return {
 			type: "group",
+			messageId: `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`,
 			accountId,
 			traits,
 			timestamp: new Date().toISOString(),
@@ -425,16 +437,13 @@ describe("Queue", () => {
 		it("should NOT retry on 4xx errors (except 429)", async () => {
 			mockFetchSequence([
 				{ status: 400, ok: false, statusText: "Bad Request" },
-				{ status: 400, ok: false, statusText: "Bad Request" },
-				{ status: 400, ok: false, statusText: "Bad Request" },
-				{ status: 400, ok: false, statusText: "Bad Request" },
 			]);
 			queue = new Queue(createConfig({ maxRetries: 3 }));
 			queue.push(createTrackEvent("test_event"));
 
 			await queue.flush();
 
-			expect(getAllFetchCalls().length).toBe(4);
+			expect(getAllFetchCalls().length).toBe(1);
 
 			expect(queue.length).toBe(1);
 		});

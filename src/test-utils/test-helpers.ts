@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { Analytics, AnalyticsConfig } from "../core/types";
+import type { Analytics, AnalyticsConfig, ResolvedConfig } from "../core/types";
 
 /**
  * Default test API key
@@ -26,6 +26,34 @@ export function createTestConfig(
 		sessionTimeout: 1800000,
 		respectDNT: true,
 		maxRetries: 3,
+		...overrides,
+	};
+}
+
+/**
+ * Create a test resolved configuration (with all defaults applied)
+ */
+export function createTestResolvedConfig(
+	overrides?: Partial<ResolvedConfig>,
+): ResolvedConfig {
+	return {
+		apiKey: TEST_API_KEY,
+		host: TEST_HOST,
+		debug: false,
+		flushAt: 20,
+		flushInterval: 10000,
+		sessionTimeout: 1800000,
+		cookieDomain: undefined,
+		respectDNT: true,
+		maxRetries: 3,
+		persistQueue: false,
+		maxPersistedEvents: 1000,
+		anonymousIdMaxAge: 0,
+		circuitBreakerThreshold: 5,
+		circuitBreakerResetTimeout: 30000,
+		maxEventsPerSecond: 0,
+		sampleRate: 1,
+		structuredLogging: false,
 		...overrides,
 	};
 }

@@ -652,11 +652,15 @@ describe("Analytics", () => {
 
 		it("should resolve after successful send", async () => {
 			analytics.track("test_event");
-			await expect(analytics.flush()).resolves.toBeUndefined();
+			const result = await analytics.flush();
+			expect(result.success).toBe(true);
+			expect(result.eventCount).toBe(1);
 		});
 
 		it("should handle empty queue gracefully", async () => {
-			await expect(analytics.flush()).resolves.toBeUndefined();
+			const result = await analytics.flush();
+			expect(result.success).toBe(true);
+			expect(result.eventCount).toBe(0);
 			expect(getAllFetchCalls().length).toBe(0);
 		});
 	});
@@ -976,7 +980,7 @@ describe("Analytics", () => {
 
 					expect(consoleSpy.warn).toHaveBeenCalledWith(
 						expect.stringContaining("[Thisbefine Analytics]"),
-						"subscriptionStarted: plan is required",
+						"subscriptionStarted: plan is required, event not sent",
 					);
 				});
 			});
@@ -1028,7 +1032,7 @@ describe("Analytics", () => {
 
 					expect(consoleSpy.warn).toHaveBeenCalledWith(
 						expect.stringContaining("[Thisbefine Analytics]"),
-						"subscriptionCancelled: plan is required",
+						"subscriptionCancelled: plan is required, event not sent",
 					);
 				});
 			});
@@ -1107,7 +1111,7 @@ describe("Analytics", () => {
 
 					expect(consoleSpy.warn).toHaveBeenCalledWith(
 						expect.stringContaining("[Thisbefine Analytics]"),
-						"planUpgraded: fromPlan and toPlan are required",
+						"planUpgraded: fromPlan and toPlan are required, event not sent",
 					);
 				});
 			});
@@ -1217,7 +1221,7 @@ describe("Analytics", () => {
 
 					expect(consoleSpy.warn).toHaveBeenCalledWith(
 						expect.stringContaining("[Thisbefine Analytics]"),
-						"trialEnded: plan and converted are required",
+						"trialEnded: plan and converted are required, event not sent",
 					);
 				});
 			});
@@ -1331,7 +1335,7 @@ describe("Analytics", () => {
 
 					expect(consoleSpy.warn).toHaveBeenCalledWith(
 						expect.stringContaining("[Thisbefine Analytics]"),
-						"featureActivated: feature is required",
+						"featureActivated: feature is required, event not sent",
 					);
 				});
 			});
