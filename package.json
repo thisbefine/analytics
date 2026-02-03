@@ -4,7 +4,7 @@
 	"description": "Track events, catch errors, and pretend everything's fine. Lightweight analytics for indie SaaS.",
 	"author": "Thisbefine <hello@thisbefine.com>",
 	"license": "MIT",
-	"homepage": "https://thisbefine.com",
+	"homepage": "https://thisbefine.com/docs",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/thisbefine/analytics.git"
