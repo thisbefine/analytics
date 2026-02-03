@@ -169,6 +169,38 @@ analytics.log('Cache miss for user preferences', 'debug', {
 });
 ```
 
+### Lifecycle Events
+
+Track key SaaS milestones with built-in methods. These use reserved event names (prefixed with `$`) and typed properties for consistent analytics.
+
+```typescript
+// User lifecycle
+analytics.signup({ method: 'google', plan: 'free' });
+analytics.login({ method: 'passkey', isNewDevice: true });
+analytics.logout({ reason: 'manual' });
+analytics.accountDeleted({ reason: 'not_using', tenure: 45 });
+
+// Subscription events
+analytics.subscriptionStarted({ plan: 'pro', interval: 'monthly', mrr: 29 });
+analytics.subscriptionCancelled({ plan: 'pro', reason: 'too_expensive', mrr: 29 });
+analytics.subscriptionRenewed({ plan: 'pro', renewalCount: 12 });
+
+// Plan changes
+analytics.planUpgraded({ fromPlan: 'starter', toPlan: 'pro', mrrChange: 20 });
+analytics.planDowngraded({ fromPlan: 'pro', toPlan: 'starter', reason: 'budget' });
+
+// Trials
+analytics.trialStarted({ plan: 'pro', trialDays: 14 });
+analytics.trialEnded({ plan: 'pro', converted: true });
+
+// Team/collaboration
+analytics.inviteSent({ inviteEmail: 'teammate@company.com', role: 'editor' });
+analytics.inviteAccepted({ invitedBy: 'user_123', role: 'editor' });
+
+// Feature adoption
+analytics.featureActivated({ feature: 'dark_mode', isFirstTime: true });
+```
+
 ### Privacy Controls
 
 Because being creepy is bad for business.
@@ -185,6 +217,36 @@ if (analytics.isOptedOut()) {
 
 // Opt back in
 analytics.optIn();
+```
+
+### Consent Management
+
+Granular control over tracking categories for GDPR/CCPA compliance.
+
+```typescript
+// Configure consent categories on init
+const analytics = createAnalytics({
+  apiKey: 'tbf_xxx',
+  consent: {
+    categories: ['analytics', 'marketing', 'functional'],
+    defaultConsent: false, // Don't track until explicit consent
+  },
+});
+
+// Check if a category is enabled
+if (analytics.hasConsent('marketing')) {
+  // Show personalized content
+}
+
+// Get all consented categories
+const categories = analytics.getConsentedCategories();
+
+// Set consent (replaces current consent)
+analytics.setConsent(['analytics', 'functional']);
+
+// Grant/revoke individual categories
+analytics.grantConsent('marketing');
+analytics.revokeConsent('marketing');
 ```
 
 ## React Hooks
@@ -289,9 +351,10 @@ const analytics = createAnalytics({
   // Required
   apiKey: 'tbf_xxx',
 
-  // Optional
+  // Optional - Basic
   host: 'https://thisbefine.com',     // API endpoint
   debug: false,                        // Console logging
+  structuredLogging: false,            // Output debug logs as JSON
   flushAt: 20,                         // Batch size before sending
   flushInterval: 10000,                // Ms between flushes
   sessionTimeout: 1800000,             // 30 min session timeout
@@ -299,12 +362,46 @@ const analytics = createAnalytics({
   respectDNT: true,                    // Honor Do Not Track
   maxRetries: 3,                       // Retry failed requests
 
-  // Error tracking config
+  // Error tracking
   errors: {
     enabled: true,
     captureUnhandled: true,
     captureConsoleErrors: true,
   },
+
+  // Lifecycle hooks
+  onFlushError: (error, failedEvents) => {
+    console.error('Failed to send events:', error);
+    // Log to your error tracking service
+  },
+  beforeSend: (event) => {
+    // Scrub PII from event properties
+    if (event.type === 'track' && event.properties?.email) {
+      const { email, ...rest } = event.properties;
+      return { ...event, properties: rest };
+    }
+    // Return null to discard the event
+    return event;
+  },
+
+  // Queue persistence (crash recovery)
+  persistQueue: true,                  // Save queue to localStorage
+  maxPersistedEvents: 1000,            // Max events to persist
+
+  // Privacy & consent
+  anonymousIdMaxAge: 2592000000,       // Rotate anonymous ID every 30 days
+  consent: {
+    categories: ['analytics', 'marketing', 'functional'],
+    defaultConsent: true,              // Track by default (respects DNT)
+  },
+
+  // Rate limiting & sampling
+  maxEventsPerSecond: 100,             // Drop events exceeding this rate
+  sampleRate: 1,                       // 1 = 100%, 0.5 = 50% of events
+
+  // Circuit breaker (stops hammering failed servers)
+  circuitBreakerThreshold: 5,          // Open after N consecutive failures
+  circuitBreakerResetTimeout: 30000,   // Try again after 30s
 });
 ```
 
@@ -334,11 +431,43 @@ const analytics = createAnalytics({
 | `page(name?, properties?)` | Track a page view |
 | `group(accountId, traits?)` | Associate user with account |
 | `reset()` | Clear user data (call on logout) |
-| `flush()` | Force send queued events |
+| `flush()` | Force send queued events (returns `FlushResult`) |
+| `destroy()` | Clean up resources, flush remaining events |
 | `optOut()` | Disable tracking |
 | `optIn()` | Re-enable tracking |
 | `isOptedOut()` | Check opt-out status |
 | `getUser()` | Get current user state |
+
+### Consent Methods
+
+| Method | Description |
+|--------|-------------|
+| `hasConsent(category)` | Check if a category is enabled |
+| `getConsentedCategories()` | Get all consented categories |
+| `setConsent(categories)` | Set consent (replaces current) |
+| `grantConsent(category)` | Enable a category |
+| `revokeConsent(category)` | Disable a category |
+
+Categories: `analytics` | `marketing` | `functional`
+
+### Lifecycle Methods
+
+| Method | Description |
+|--------|-------------|
+| `signup(props?)` | Track user signup |
+| `login(props?)` | Track user login |
+| `logout(props?)` | Track user logout |
+| `accountDeleted(props?)` | Track account deletion |
+| `subscriptionStarted(props)` | Track subscription start |
+| `subscriptionCancelled(props)` | Track subscription cancellation |
+| `subscriptionRenewed(props)` | Track subscription renewal |
+| `planUpgraded(props)` | Track plan upgrade |
+| `planDowngraded(props)` | Track plan downgrade |
+| `trialStarted(props)` | Track trial start |
+| `trialEnded(props)` | Track trial end |
+| `inviteSent(props?)` | Track invite sent |
+| `inviteAccepted(props?)` | Track invite accepted |
+| `featureActivated(props)` | Track feature activation |
 
 ### Error Tracking Methods
 
@@ -376,11 +505,40 @@ Full type definitions included:
 
 ```typescript
 import type {
+  // Core types
   Analytics,
   AnalyticsConfig,
   UserState,
   UserTraits,
   AccountTraits,
+  FlushResult,
+
+  // Event types
+  AnalyticsEvent,
+  TrackEvent,
+  IdentifyEvent,
+  PageEvent,
+  GroupEvent,
+
+  // Hooks
+  BeforeSend,
+  OnFlushError,
+
+  // Lifecycle event props
+  SignupProps,
+  LoginProps,
+  LogoutProps,
+  AccountDeletedProps,
+  SubscriptionStartedProps,
+  SubscriptionCancelledProps,
+  SubscriptionRenewedProps,
+  PlanUpgradedProps,
+  PlanDowngradedProps,
+  TrialStartedProps,
+  TrialEndedProps,
+  InviteSentProps,
+  InviteAcceptedProps,
+  FeatureActivatedProps,
 } from '@thisbefine/analytics';
 ```
 
