@@ -75,7 +75,7 @@ export interface AnalyticsConfig {
 	/** Your Thisbefine API key (starts with tbf_) */
 	apiKey: string;
 
-	/** API host URL. Defaults to https://thisbefine.com */
+	/** API host URL. Defaults to https://www.thisbefine.com */
 	host?: string;
 
 	/** Number of events to batch before sending. Default: 20 */
@@ -592,7 +592,7 @@ export const LIBRARY_INFO = {
  * Default configuration values
  */
 export const DEFAULT_CONFIG = {
-	host: "https://thisbefine.com",
+	host: "https://www.thisbefine.com",
 	flushAt: 20,
 	flushInterval: 10000,
 	sessionTimeout: 30 * 60 * 1000,

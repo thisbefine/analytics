@@ -351,7 +351,7 @@ const analytics = createAnalytics({
   apiKey: 'tbf_xxx',
 
   // Optional - Basic
-  host: 'https://thisbefine.com',     // API endpoint
+  host: 'https://www.thisbefine.com',     // API endpoint
   debug: false,                        // Console logging
   structuredLogging: false,            // Output debug logs as JSON
   flushAt: 20,                         // Batch size before sending

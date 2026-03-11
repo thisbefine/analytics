@@ -432,7 +432,7 @@ export const createBugReportWidget = (
 					config?: { host?: string; apiKey?: string };
 				};
 				const apiHost =
-					analyticsConfig.config?.host ?? "https://thisbefine.com";
+					analyticsConfig.config?.host ?? "https://www.thisbefine.com";
 				const apiKey = analyticsConfig.config?.apiKey ?? "";
 
 				const response = await fetch(`${apiHost}/api/v1/bug-report`, {
