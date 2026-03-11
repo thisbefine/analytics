@@ -121,6 +121,75 @@ describe("Analytics", () => {
 		});
 	});
 
+	describe("Sampling & Rate Limiting", () => {
+		beforeEach(() => {
+			vi.useFakeTimers();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+			vi.restoreAllMocks();
+		});
+
+		it("should drop events when sampleRate is 0", async () => {
+			const analytics = new AnalyticsImpl(
+				createTestConfig({ sampleRate: 0 }),
+			);
+			analytics.track("sampled_out");
+			await analytics.flush();
+			expect(getAllFetchCalls().length).toBe(0);
+		});
+
+		it("should always send events when sampleRate is 1", async () => {
+			const analytics = new AnalyticsImpl(
+				createTestConfig({ sampleRate: 1 }),
+			);
+			analytics.track("sampled_in");
+			await analytics.flush();
+			expect(getAllFetchCalls().length).toBe(1);
+		});
+
+		it("should respect sampling probability with deterministic random", async () => {
+			const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0.6);
+			const analytics = new AnalyticsImpl(
+				createTestConfig({ sampleRate: 0.5 }),
+			);
+
+			analytics.track("sampled_out");
+			await analytics.flush();
+
+			expect(getAllFetchCalls().length).toBe(0);
+			randomSpy.mockReturnValue(0.4);
+
+			analytics.track("sampled_in");
+			await analytics.flush();
+			expect(getAllFetchCalls().length).toBe(1);
+		});
+
+		it("should drop events above maxEventsPerSecond and recover", async () => {
+			const consoleSpy = mockConsole();
+			const analytics = new AnalyticsImpl(
+				createTestConfig({ maxEventsPerSecond: 1, debug: true }),
+			);
+
+			vi.setSystemTime(new Date("2025-01-01T00:00:00Z"));
+			analytics.track("event_1");
+			analytics.track("event_2");
+			await analytics.flush();
+
+			expect(consoleSpy.warn).toHaveBeenCalledWith(
+				expect.stringContaining("[Thisbefine Analytics]"),
+				expect.stringContaining("Rate limit exceeded"),
+			);
+
+			vi.setSystemTime(new Date("2025-01-01T00:00:02Z"));
+			analytics.track("event_3");
+			await analytics.flush();
+
+			expect(getAllFetchCalls().length).toBe(2);
+		});
+	});
+
 	describe("Global Instance Management", () => {
 		afterEach(async () => {
 			await resetGlobalAnalytics();
@@ -333,6 +402,63 @@ describe("Analytics", () => {
 
 			debugAnalytics.track("test", circular);
 			expect(consoleSpy.warn).toHaveBeenCalled();
+		});
+	});
+
+	describe("beforeSend Hook", () => {
+		it("should allow modifying events", async () => {
+			const analytics = new AnalyticsImpl(
+				createTestConfig({
+					beforeSend: (event) => ({
+						...event,
+						type: "track",
+						event: "modified_event",
+					}),
+				}),
+			);
+
+			analytics.track("original_event");
+			await analytics.flush();
+
+			const call = getLastFetchCall();
+			const body = parseFetchBody(call?.options) as {
+				batch: Record<string, unknown>[];
+			};
+			expect(body.batch[0].event).toBe("modified_event");
+		});
+
+		it("should drop events when beforeSend returns null", async () => {
+			const analytics = new AnalyticsImpl(
+				createTestConfig({
+					beforeSend: () => null,
+				}),
+			);
+
+			analytics.track("dropped_event");
+			await analytics.flush();
+			expect(getAllFetchCalls().length).toBe(0);
+		});
+
+		it("should log and continue when beforeSend throws", async () => {
+			const consoleSpy = mockConsole();
+			const analytics = new AnalyticsImpl(
+				createTestConfig({
+					debug: true,
+					beforeSend: () => {
+						throw new Error("beforeSend failed");
+					},
+				}),
+			);
+
+			analytics.track("event_after_error");
+			await analytics.flush();
+
+			expect(consoleSpy.warn).toHaveBeenCalledWith(
+				expect.stringContaining("[Thisbefine Analytics]"),
+				"beforeSend hook threw an error:",
+				expect.any(Error),
+			);
+			expect(getAllFetchCalls().length).toBe(1);
 		});
 	});
 
@@ -561,6 +687,90 @@ describe("Analytics", () => {
 			analytics.reset();
 
 			await flushPromises();
+		});
+
+		it("should call queue.flush and session.reset", () => {
+			const queue = (
+				analytics as unknown as { queue: { flush: () => Promise<unknown> } }
+			).queue;
+			const session = (analytics as unknown as { session: { reset: () => void } })
+				.session;
+
+			const flushSpy = vi.spyOn(queue, "flush");
+			const resetSpy = vi.spyOn(session, "reset");
+
+			analytics.reset();
+
+			expect(flushSpy).toHaveBeenCalled();
+			expect(resetSpy).toHaveBeenCalled();
+		});
+
+		it("should clear error breadcrumbs when enabled", () => {
+			const analyticsWithErrors = new AnalyticsImpl(
+				createTestConfig({ errors: { enabled: true } }),
+			);
+
+			const errorCapture = (
+				analyticsWithErrors as unknown as {
+					errorCapture?: { clearBreadcrumbs: () => void };
+				}
+			).errorCapture;
+
+			const clearSpy = vi.spyOn(errorCapture as { clearBreadcrumbs: () => void }, "clearBreadcrumbs");
+			analyticsWithErrors.reset();
+
+			expect(clearSpy).toHaveBeenCalled();
+		});
+	});
+
+	describe("destroy() Method", () => {
+		it("should destroy queue, session, and error capture", async () => {
+			const instance = initAnalytics({
+				apiKey: TEST_API_KEY,
+				errors: { enabled: true },
+			});
+			const queue = (instance as unknown as { queue: { destroy: () => Promise<void> } }).queue;
+			const session = (instance as unknown as { session: { destroy: () => void } }).session;
+			const errorCapture = (
+				instance as unknown as {
+					errorCapture?: { uninstall: () => void };
+				}
+			).errorCapture;
+
+			const queueSpy = vi.spyOn(queue, "destroy");
+			const sessionSpy = vi.spyOn(session, "destroy");
+			const uninstallSpy = vi.spyOn(errorCapture as { uninstall: () => void }, "uninstall");
+
+			await instance.destroy();
+
+			expect(queueSpy).toHaveBeenCalled();
+			expect(sessionSpy).toHaveBeenCalled();
+			expect(uninstallSpy).toHaveBeenCalled();
+			expect(getAnalytics()).toBeNull();
+		});
+	});
+
+	describe("Consent Passthrough", () => {
+		let analytics: AnalyticsImpl;
+
+		beforeEach(() => {
+			analytics = new AnalyticsImpl(createTestConfig());
+		});
+
+		it("should set and read consent categories", () => {
+			analytics.setConsent(["analytics"]);
+			expect(analytics.getConsentedCategories()).toEqual(["analytics"]);
+		});
+
+		it("should grant and revoke consent categories", () => {
+			analytics.setConsent(["analytics"]);
+			analytics.grantConsent("marketing");
+			expect(analytics.getConsentedCategories()).toEqual(
+				expect.arrayContaining(["analytics", "marketing"]),
+			);
+
+			analytics.revokeConsent("analytics");
+			expect(analytics.getConsentedCategories()).toEqual(["marketing"]);
 		});
 	});
 

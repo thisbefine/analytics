@@ -159,6 +159,12 @@ describe("Storage", () => {
 			const storageType = storage.getStorageType();
 			expect(["cookie", "memory"]).toContain(storageType);
 		});
+
+		it("should support cookie domain when provided", () => {
+			const domainStorage = new Storage(".example.com");
+			expect(() => domainStorage.set("domain_key", "domain_value")).not.toThrow();
+			expect(() => domainStorage.remove("domain_key")).not.toThrow();
+		});
 	});
 
 	describe("Memory Storage Operations", () => {
@@ -213,6 +219,52 @@ describe("Storage", () => {
 			const storage = new Storage();
 			storage.set("key1", "value1");
 			expect(storage.get("key1")).toBeNull();
+		});
+
+		it("should clear old data on quota exceeded error", () => {
+			const mockStore = mockLocalStorage();
+			const removeSpy = vi.spyOn(mockStore, "removeItem");
+			const storage = new Storage();
+
+			mockStore.setItem("tif_user_traits", "x".repeat(20000));
+
+			// Access private helper for targeted coverage.
+			(storage as unknown as { clearOldData: () => void }).clearOldData();
+
+			const removedKeys = removeSpy.mock.calls.map((call) => call[0]);
+			expect(removedKeys).toContain("tif_user_traits");
+		});
+
+		it("should handle NS_ERROR_DOM_QUOTA_REACHED gracefully", () => {
+			const mockStore = mockLocalStorage();
+			let callCount = 0;
+			vi.spyOn(mockStore, "setItem").mockImplementation((key, _value) => {
+				callCount++;
+				if (callCount > 1 && key !== "__tif_storage_test__") {
+					const error = new Error("NS_ERROR_DOM_QUOTA_REACHED");
+					error.name = "NS_ERROR_DOM_QUOTA_REACHED";
+					throw error;
+				}
+			});
+
+			const storage = new Storage();
+			expect(() => storage.set("quota_key", "value")).not.toThrow();
+			expect(storage.get("quota_key")).toBeNull();
+		});
+
+		it("should handle quota errors based on message", () => {
+			const mockStore = mockLocalStorage();
+			let callCount = 0;
+			vi.spyOn(mockStore, "setItem").mockImplementation((key, _value) => {
+				callCount++;
+				if (callCount > 1 && key !== "__tif_storage_test__") {
+					throw new Error("quota exceeded");
+				}
+			});
+
+			const storage = new Storage();
+			expect(() => storage.set("quota_msg_key", "value")).not.toThrow();
+			expect(storage.get("quota_msg_key")).toBeNull();
 		});
 
 		it("should handle storage access errors gracefully", () => {

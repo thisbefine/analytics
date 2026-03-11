@@ -106,6 +106,32 @@ describe("Privacy", () => {
 		});
 	});
 
+	describe("Consent Storage", () => {
+		it("should default to all categories when defaultConsent is true", () => {
+			privacy = new Privacy(storage, true, false, {
+				defaultConsent: true,
+			});
+			expect(privacy.getConsentedCategories()).toEqual([
+				"analytics",
+				"marketing",
+				"functional",
+			]);
+		});
+
+		it("should default to no categories when defaultConsent is false", () => {
+			privacy = new Privacy(storage, true, false, {
+				defaultConsent: false,
+			});
+			expect(privacy.getConsentedCategories()).toEqual([]);
+		});
+
+		it("should fail safe when stored consent is corrupted", () => {
+			storage.setItem("tif_consent", "not valid json");
+			privacy = new Privacy(storage, true);
+			expect(privacy.getConsentedCategories()).toEqual([]);
+		});
+	});
+
 	describe("Opt-out Management", () => {
 		beforeEach(() => {
 			privacy = new Privacy(storage, true);
@@ -238,6 +264,28 @@ describe("Privacy", () => {
 				"[Thisbefine Privacy]",
 				"Tracking blocked: GPC enabled",
 			);
+		});
+	});
+
+	describe("Category Gating", () => {
+		it("should allow tracking only for consented category", () => {
+			privacy = new Privacy(storage, true, false, {
+				categories: ["analytics"],
+				defaultConsent: true,
+			});
+
+			expect(privacy.shouldTrackForCategory("analytics")).toBe(true);
+			expect(privacy.shouldTrackForCategory("marketing")).toBe(false);
+		});
+
+		it("should block tracking when opted out even if category consented", () => {
+			privacy = new Privacy(storage, true, false, {
+				categories: ["analytics"],
+				defaultConsent: true,
+			});
+			privacy.optOut();
+
+			expect(privacy.shouldTrackForCategory("analytics")).toBe(false);
 		});
 	});
 

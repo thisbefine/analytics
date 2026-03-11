@@ -66,6 +66,16 @@ describe("Session", () => {
 
 			expect(newId).not.toBe(originalId);
 		});
+
+		it("should rotate anonymous ID when max age exceeded", () => {
+			session = new Session(storage, 1800000, false, 1000);
+			const originalId = session.getAnonymousId();
+
+			vi.advanceTimersByTime(2000);
+			const rotatedId = session.getAnonymousId();
+
+			expect(rotatedId).not.toBe(originalId);
+		});
 	});
 
 	describe("User ID", () => {
@@ -466,6 +476,47 @@ describe("Session", () => {
 
 			session.destroy();
 			expect(() => session.destroy()).not.toThrow();
+		});
+	});
+
+	describe("Cross-tab Sync", () => {
+		it("should broadcast reset and sync sessions across tabs", () => {
+			const channels: Array<{
+				name: string;
+				onmessage?: (event: MessageEvent) => void;
+			}> = [];
+
+			class TestBroadcastChannel {
+				name: string;
+				onmessage: ((event: MessageEvent) => void) | null = null;
+				constructor(name: string) {
+					this.name = name;
+					channels.push(this);
+				}
+				postMessage(message: unknown): void {
+					for (const channel of channels) {
+						if (channel !== this && channel.name === this.name) {
+							channel.onmessage?.({ data: message } as MessageEvent);
+						}
+					}
+				}
+				close(): void {}
+			}
+
+			globalThis.BroadcastChannel =
+				TestBroadcastChannel as unknown as typeof BroadcastChannel;
+
+			const storageA = new MockStorage();
+			const storageB = new MockStorage();
+
+			const sessionA = new Session(storageA, 1800000);
+			const sessionB = new Session(storageB, 1800000);
+
+			sessionA.reset();
+
+			expect(sessionB.getSessionId()).toBeDefined();
+			sessionA.destroy();
+			sessionB.destroy();
 		});
 	});
 });

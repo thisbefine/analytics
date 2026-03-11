@@ -9,6 +9,7 @@ import {
 	mockFetchError,
 	mockFetchSequence,
 	mockFetchWithStatuses,
+	mockLocalStorage,
 	mockSendBeacon,
 	parseFetchBody,
 	resetFetchMock,
@@ -24,6 +25,7 @@ import type {
 	ResolvedConfig,
 	TrackEvent,
 } from "../types";
+import { STORAGE_KEYS } from "../types";
 
 describe("Queue", () => {
 	let queue: Queue;
@@ -399,6 +401,20 @@ describe("Queue", () => {
 			await queue.flush();
 			expect(getAllFetchCalls().length).toBe(0);
 		});
+
+		it("should re-queue and notify when sendBeacon returns false", async () => {
+			const beaconSpy = mockSendBeacon(false);
+			const onFlushError = vi.fn();
+			queue = new Queue(createConfig({ onFlushError }));
+			queue.push(createTrackEvent("test_event"));
+
+			const result = await queue.flush(true);
+
+			expect(beaconSpy).toHaveBeenCalled();
+			expect(result.success).toBe(false);
+			expect(queue.length).toBe(1);
+			expect(onFlushError).toHaveBeenCalled();
+		});
 	});
 
 	describe("Retry Logic", () => {
@@ -483,15 +499,188 @@ describe("Queue", () => {
 		});
 	});
 
+	describe("Circuit Breaker", () => {
+		beforeEach(() => {
+			vi.useFakeTimers();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it("should open after consecutive failures and skip requests", async () => {
+			mockFetchWithStatuses([500, 500]);
+			queue = new Queue(
+				createConfig({ maxRetries: 0, circuitBreakerThreshold: 2 }),
+			);
+			queue.push(createTrackEvent("event_1"));
+			await queue.flush();
+
+			queue.push(createTrackEvent("event_2"));
+			await queue.flush();
+
+			expect(queue.circuitBreakerState).toBe("open");
+
+			clearFetchCalls();
+			queue.push(createTrackEvent("event_3"));
+			const result = await queue.flush();
+
+			expect(result.success).toBe(false);
+			expect(getAllFetchCalls().length).toBe(0);
+		});
+
+		it("should transition to half-open then close on success", async () => {
+			mockFetchWithStatuses([500, 500, 200]);
+			queue = new Queue(
+				createConfig({
+					maxRetries: 0,
+					circuitBreakerThreshold: 2,
+					circuitBreakerResetTimeout: 1000,
+				}),
+			);
+			queue.push(createTrackEvent("event_1"));
+			await queue.flush();
+			queue.push(createTrackEvent("event_2"));
+			await queue.flush();
+
+			expect(queue.circuitBreakerState).toBe("open");
+
+			vi.setSystemTime(new Date(Date.now() + 2000));
+			queue.push(createTrackEvent("event_3"));
+			await queue.flush();
+
+			expect(queue.circuitBreakerState).toBe("closed");
+		});
+	});
+
+	describe("Error Callback", () => {
+		it("should call onFlushError with failed events", async () => {
+			const onFlushError = vi.fn();
+			mockFetchWithStatuses([500]);
+			queue = new Queue(createConfig({ maxRetries: 0, onFlushError }));
+			queue.push(createTrackEvent("event_1"));
+
+			const result = await queue.flush();
+
+			expect(result.success).toBe(false);
+			expect(onFlushError).toHaveBeenCalledWith(
+				expect.any(Error),
+				expect.any(Array),
+			);
+		});
+
+		it("should handle errors thrown by onFlushError callback", async () => {
+			const consoleSpy = mockConsole();
+			mockFetchWithStatuses([500]);
+			queue = new Queue(
+				createConfig({
+					maxRetries: 0,
+					debug: true,
+					onFlushError: () => {
+						throw new Error("callback failed");
+					},
+				}),
+			);
+			queue.push(createTrackEvent("event_1"));
+
+			await queue.flush();
+
+			expect(consoleSpy.warn).toHaveBeenCalledWith(
+				expect.stringContaining("[Thisbefine Queue]"),
+				"onFlushError callback threw:",
+				expect.any(Error),
+			);
+		});
+	});
+
+	describe("Persistence", () => {
+		it("should restore queue from localStorage when enabled", () => {
+			const storage = mockLocalStorage();
+			storage.setItem(
+				STORAGE_KEYS.QUEUE,
+				JSON.stringify([createTrackEvent("event_1")]),
+			);
+			queue = new Queue(createConfig({ persistQueue: true }));
+
+			expect(queue.length).toBe(1);
+			expect(storage.getItem(STORAGE_KEYS.QUEUE)).toBeNull();
+		});
+
+		it("should respect maxPersistedEvents limit", () => {
+			const storage = mockLocalStorage();
+			queue = new Queue(
+				createConfig({ persistQueue: true, maxPersistedEvents: 1 }),
+			);
+			queue.push(createTrackEvent("event_1"));
+			queue.push(createTrackEvent("event_2"));
+
+			const stored = storage.getItem(STORAGE_KEYS.QUEUE);
+			expect(stored).not.toBeNull();
+			const parsed = JSON.parse(stored as string) as TrackEvent[];
+			expect(parsed.length).toBe(1);
+		});
+	});
+
+	describe("Offline/Online Handling", () => {
+		it("should skip flush when offline and resume on online event", async () => {
+			Object.defineProperty(navigator, "onLine", {
+				value: false,
+				configurable: true,
+			});
+			queue = new Queue(createConfig());
+			queue.push(createTrackEvent("event_1"));
+
+			const result = await queue.flush();
+			expect(result.success).toBe(false);
+			expect(getAllFetchCalls().length).toBe(0);
+
+			Object.defineProperty(navigator, "onLine", {
+				value: true,
+				configurable: true,
+			});
+			window.dispatchEvent(new Event("online"));
+			await flushPromises();
+
+			expect(getAllFetchCalls().length).toBeGreaterThan(0);
+		});
+	});
+
+	describe("Clock Offset", () => {
+		it("should update clock offset from Date header and include in payload", async () => {
+			vi.useFakeTimers();
+			const serverDate = new Date("2025-01-01T00:00:00Z").toUTCString();
+			mockFetchSequence([
+				{ status: 200, ok: true, headers: { Date: serverDate } },
+				{ status: 200, ok: true },
+			]);
+			queue = new Queue(createConfig());
+
+			vi.setSystemTime(new Date("2025-01-01T00:00:05Z"));
+			queue.push(createTrackEvent("event_1"));
+			await queue.flush();
+
+			queue.push(createTrackEvent("event_2"));
+			await queue.flush();
+
+			const calls = getAllFetchCalls();
+			const secondBody = parseFetchBody(calls[1]?.options) as {
+				clockOffset?: number;
+			};
+			expect(secondBody.clockOffset).toBeDefined();
+			vi.useRealTimers();
+		});
+	});
+
 	describe("Page Unload Handling", () => {
 		it("should flush on visibilitychange to hidden", async () => {
+			mockSendBeacon(true);
 			queue = new Queue(config);
 			queue.push(createTrackEvent("test_event"));
 
 			triggerVisibilityChange(true);
 			await flushPromises();
 
-			expect(getAllFetchCalls().length).toBeGreaterThan(0);
+			expect(navigator.sendBeacon).toHaveBeenCalled();
 		});
 
 		it("should flush on beforeunload", async () => {

@@ -8,6 +8,7 @@ import {
 	MockStorage,
 	mockConsole,
 	mockFetch,
+	mockFetchSequence,
 	mockHistory,
 	mockLocation,
 	parseFetchBody,
@@ -359,6 +360,33 @@ describe("ErrorCapture", () => {
 			expect(body1.fingerprint).toBe(body2.fingerprint);
 		});
 
+		it("should normalize dynamic values in fingerprint", async () => {
+			const error1 = createMockError(
+				"Request failed for user 12345 at 2024-01-01T10:10:10",
+			);
+			const error2 = createMockError(
+				"Request failed for user 99999 at 2024-01-01T10:10:11",
+			);
+
+			errorCapture.captureException(error1);
+			await flushPromises();
+			vi.advanceTimersByTime(100);
+			await flushPromises();
+
+			const call1 = getAllFetchCalls()[0];
+			const body1 = parseFetchBody(call1?.options) as ErrorPayload;
+
+			errorCapture.captureException(error2);
+			await flushPromises();
+			vi.advanceTimersByTime(100);
+			await flushPromises();
+
+			const call2 = getAllFetchCalls()[1];
+			const body2 = parseFetchBody(call2?.options) as ErrorPayload;
+
+			expect(body1.fingerprint).toBe(body2.fingerprint);
+		});
+
 		it("should include breadcrumbs", async () => {
 			errorCapture.addBreadcrumb({
 				type: "custom",
@@ -552,6 +580,154 @@ describe("ErrorCapture", () => {
 			document.body.removeChild(button);
 		});
 
+		it("should de-duplicate rapid clicks on the same target", async () => {
+			const button = createTestElement("button", {
+				id: "save-btn",
+				textContent: "Save",
+			});
+			document.body.appendChild(button);
+
+			const clickEvent = new MouseEvent("click", { bubbles: true });
+			Object.defineProperty(clickEvent, "target", { value: button });
+			document.dispatchEvent(clickEvent);
+			document.dispatchEvent(clickEvent);
+
+			errorCapture.captureException(createMockError("Error after click"));
+
+			await flushPromises();
+			vi.advanceTimersByTime(100);
+			await flushPromises();
+
+			const call = getLastFetchCall();
+			const body = parseFetchBody(call?.options) as ErrorPayload;
+			const clickBreadcrumbs =
+				body.breadcrumbs?.filter((b) => b.type === "click") ?? [];
+			expect(clickBreadcrumbs.length).toBe(1);
+
+			document.body.removeChild(button);
+		});
+
+		it("should capture click text from child nodes", async () => {
+			const div = document.createElement("div");
+			div.appendChild(document.createTextNode("Hello"));
+			div.appendChild(document.createTextNode("World"));
+			document.body.appendChild(div);
+
+			const clickEvent = new MouseEvent("click", { bubbles: true });
+			Object.defineProperty(clickEvent, "target", { value: div });
+			document.dispatchEvent(clickEvent);
+
+			errorCapture.captureException(createMockError("Error after click"));
+
+			await flushPromises();
+			vi.advanceTimersByTime(100);
+			await flushPromises();
+
+			const call = getLastFetchCall();
+			const body = parseFetchBody(call?.options) as ErrorPayload;
+			const clickBreadcrumb = body.breadcrumbs?.find((b) => b.type === "click");
+			expect(clickBreadcrumb?.message).toContain("HelloWorld");
+
+			document.body.removeChild(div);
+		});
+
+		it("should capture click text from button innerText when many children", async () => {
+			const button = document.createElement("button");
+			button.appendChild(document.createTextNode("Line 1"));
+			button.appendChild(document.createTextNode("Line 2"));
+			button.appendChild(document.createTextNode("Line 3"));
+			button.appendChild(document.createTextNode("Line 4"));
+			button.innerText = "Line 1";
+			document.body.appendChild(button);
+
+			const clickEvent = new MouseEvent("click", { bubbles: true });
+			Object.defineProperty(clickEvent, "target", { value: button });
+			document.dispatchEvent(clickEvent);
+
+			errorCapture.captureException(createMockError("Error after click"));
+
+			await flushPromises();
+			vi.advanceTimersByTime(100);
+			await flushPromises();
+
+			const call = getLastFetchCall();
+			const body = parseFetchBody(call?.options) as ErrorPayload;
+			const clickBreadcrumb = body.breadcrumbs?.find((b) => b.type === "click");
+			expect(clickBreadcrumb?.message).toContain("Line 1");
+
+			document.body.removeChild(button);
+		});
+
+		it("should capture click text from input value", async () => {
+			const input = document.createElement("input");
+			input.value = "Search";
+			document.body.appendChild(input);
+
+			const clickEvent = new MouseEvent("click", { bubbles: true });
+			Object.defineProperty(clickEvent, "target", { value: input });
+			document.dispatchEvent(clickEvent);
+
+			errorCapture.captureException(createMockError("Error after click"));
+
+			await flushPromises();
+			vi.advanceTimersByTime(100);
+			await flushPromises();
+
+			const call = getLastFetchCall();
+			const body = parseFetchBody(call?.options) as ErrorPayload;
+			const clickBreadcrumb = body.breadcrumbs?.find((b) => b.type === "click");
+			expect(clickBreadcrumb?.message).toContain("Search");
+
+			document.body.removeChild(input);
+		});
+
+		it("should capture click text from aria-label", async () => {
+			const div = document.createElement("div");
+			div.setAttribute("aria-label", "Close dialog");
+			document.body.appendChild(div);
+
+			const clickEvent = new MouseEvent("click", { bubbles: true });
+			Object.defineProperty(clickEvent, "target", { value: div });
+			document.dispatchEvent(clickEvent);
+
+			errorCapture.captureException(createMockError("Error after click"));
+
+			await flushPromises();
+			vi.advanceTimersByTime(100);
+			await flushPromises();
+
+			const call = getLastFetchCall();
+			const body = parseFetchBody(call?.options) as ErrorPayload;
+			const clickBreadcrumb = body.breadcrumbs?.find((b) => b.type === "click");
+			expect(clickBreadcrumb?.message).toContain("Close dialog");
+
+			document.body.removeChild(div);
+		});
+
+		it("should capture click text from role button text", async () => {
+			const div = document.createElement("div");
+			div.setAttribute("role", "button");
+			div.innerText = "Save\nChanges";
+			document.body.appendChild(div);
+
+			const clickEvent = new MouseEvent("click", { bubbles: true });
+			Object.defineProperty(clickEvent, "target", { value: div });
+			document.dispatchEvent(clickEvent);
+
+			errorCapture.captureException(createMockError("Error after click"));
+
+			await flushPromises();
+			vi.advanceTimersByTime(100);
+			await flushPromises();
+
+			const call = getLastFetchCall();
+			const body = parseFetchBody(call?.options) as ErrorPayload;
+			const clickBreadcrumb = body.breadcrumbs?.find((b) => b.type === "click");
+			expect(clickBreadcrumb?.message).toContain("Save");
+
+			document.body.removeChild(div);
+		});
+
 		it("should track navigation via history.pushState", async () => {
 			history.pushState({}, "", "/new-page");
 
@@ -592,6 +768,59 @@ describe("ErrorCapture", () => {
 				(b) => b.type === "console",
 			);
 			expect(consoleBreadcrumb).toBeDefined();
+		});
+
+		it("should track network errors when enabled", async () => {
+			errorCapture.uninstall();
+			errorCapture = new ErrorCapture(config, session, {
+				captureNetworkErrors: true,
+			});
+			mockFetchSequence([{ status: 500, ok: false }]);
+			errorCapture.install();
+			await fetch("https://example.com/test");
+
+			errorCapture.captureException(createMockError("Error"));
+
+			await flushPromises();
+			vi.advanceTimersByTime(100);
+			await flushPromises();
+
+			const call = getLastFetchCall();
+			const body = parseFetchBody(call?.options) as ErrorPayload;
+
+			const networkBreadcrumb = body.breadcrumbs?.find(
+				(b) => b.type === "network",
+			);
+			expect(networkBreadcrumb).toBeDefined();
+		});
+
+		it("should capture network errors when fetch throws", async () => {
+			errorCapture.uninstall();
+			errorCapture = new ErrorCapture(config, session, {
+				captureNetworkErrors: true,
+			});
+			globalThis.fetch = vi.fn(() => {
+				throw new Error("Network down");
+			}) as unknown as typeof fetch;
+			errorCapture.install();
+
+			try {
+				await fetch("https://example.com/fail");
+			} catch {}
+
+			mockFetch();
+			errorCapture.captureException(createMockError("Error"));
+
+			await flushPromises();
+			vi.advanceTimersByTime(100);
+			await flushPromises();
+
+			const call = getLastFetchCall();
+			const body = parseFetchBody(call?.options) as ErrorPayload;
+			const networkBreadcrumb = body.breadcrumbs?.find(
+				(b) => b.type === "network",
+			);
+			expect(networkBreadcrumb?.message).toContain("failed");
 		});
 
 		it("should respect maxBreadcrumbs limit (FIFO)", () => {

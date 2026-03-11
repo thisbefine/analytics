@@ -3,6 +3,7 @@ import type { Analytics, ConsentCategory } from "../../core/types";
 import {
 	getLastFetchCall,
 	mockFetch,
+	mockFetchSequence,
 	mockLocation,
 	mockUserAgent,
 	parseFetchBody,
@@ -285,6 +286,63 @@ describe("Bug Report Widget", () => {
 			) as HTMLSelectElement;
 			expect(severity?.value).toBe("medium");
 		});
+
+		it("should attach screenshot preview for large images", async () => {
+			widgetInstance = createBugReportWidget(mockAnalytics);
+
+			const host = document.getElementById("thisbefine-bug-report");
+			const fab = host?.shadowRoot?.querySelector(".tif-fab") as HTMLElement;
+			fab?.click();
+
+			const overlay = host?.shadowRoot?.querySelector(
+				".tif-overlay",
+			) as HTMLElement;
+			const screenshotZone = overlay.querySelector(
+				"#tif-screenshot",
+			) as HTMLElement;
+			const fileInput = screenshotZone.querySelector(
+				'input[type="file"]',
+			) as HTMLInputElement;
+
+			const originalImage = globalThis.Image;
+			class TestImage {
+				onload: (() => void) | null = null;
+				onerror: (() => void) | null = null;
+				set src(_value: string) {
+					this.onload?.();
+				}
+			}
+			// @ts-expect-error - overriding for test
+			globalThis.Image = TestImage;
+
+			const originalFileReader = globalThis.FileReader;
+			class TestFileReader {
+				result: string | null = null;
+				onload: (() => void) | null = null;
+				onerror: (() => void) | null = null;
+				readAsDataURL(_file: File) {
+					this.result = `data:image/jpeg;base64,${"x".repeat(600000)}`;
+					this.onload?.();
+				}
+			}
+			// @ts-expect-error - overriding for test
+			globalThis.FileReader = TestFileReader;
+
+			const file = new File(["dummy"], "test.jpg", { type: "image/jpeg" });
+			Object.defineProperty(fileInput, "files", {
+				value: [file],
+				configurable: true,
+			});
+
+			fileInput.dispatchEvent(new Event("change"));
+			await new Promise((resolve) => setTimeout(resolve, 0));
+
+			expect(screenshotZone.classList.contains("has-image")).toBe(true);
+			expect(screenshotZone.querySelector("img")).not.toBeNull();
+
+			globalThis.Image = originalImage;
+			globalThis.FileReader = originalFileReader;
+		});
 	});
 
 	describe("Form Validation", () => {
@@ -548,6 +606,48 @@ describe("Bug Report Widget", () => {
 			expect(body.userId).toBe("user_test_456");
 		});
 
+		it("should fall back when analytics.getUser throws", async () => {
+			const throwingAnalytics = createMockAnalytics({
+				getUser: vi.fn(() => {
+					throw new Error("No user");
+				}),
+			});
+			(
+				throwingAnalytics as unknown as { config: { host: string; apiKey: string } }
+			).config = {
+				host: "https://test.thisbefine.com",
+				apiKey: "tbf_test_key",
+			};
+			widgetInstance = createBugReportWidget(throwingAnalytics);
+
+			const host = document.getElementById("thisbefine-bug-report");
+			const fab = host?.shadowRoot?.querySelector(".tif-fab") as HTMLElement;
+			fab?.click();
+
+			const titleInput = host?.shadowRoot?.querySelector(
+				"#tif-title",
+			) as HTMLInputElement;
+			const descInput = host?.shadowRoot?.querySelector(
+				"#tif-desc",
+			) as HTMLTextAreaElement;
+			titleInput.value = "Bug";
+			descInput.value = "Description";
+
+			const submitBtn = host?.shadowRoot?.querySelector(
+				"#tif-submit",
+			) as HTMLButtonElement;
+			submitBtn?.click();
+
+			await vi.advanceTimersByTimeAsync(100);
+
+			const call = getLastFetchCall();
+			const body = parseFetchBody(call?.options) as {
+				anonymousId: string;
+			};
+
+			expect(body.anonymousId).toBe("unknown");
+		});
+
 		it("should include API key header", async () => {
 			widgetInstance = createBugReportWidget(mockAnalytics);
 
@@ -601,6 +701,37 @@ describe("Bug Report Widget", () => {
 			await vi.advanceTimersByTimeAsync(100);
 
 			const toast = host?.shadowRoot?.querySelector(".tif-toast.success");
+			expect(toast).not.toBeNull();
+		});
+
+		it("should show error toast and re-enable submit on failure", async () => {
+			mockFetchSequence([{ status: 500, ok: false }]);
+			widgetInstance = createBugReportWidget(mockAnalytics);
+
+			const host = document.getElementById("thisbefine-bug-report");
+			const fab = host?.shadowRoot?.querySelector(".tif-fab") as HTMLElement;
+			fab?.click();
+
+			const titleInput = host?.shadowRoot?.querySelector(
+				"#tif-title",
+			) as HTMLInputElement;
+			const descInput = host?.shadowRoot?.querySelector(
+				"#tif-desc",
+			) as HTMLTextAreaElement;
+			titleInput.value = "Bug";
+			descInput.value = "Description";
+
+			const submitBtn = host?.shadowRoot?.querySelector(
+				"#tif-submit",
+			) as HTMLButtonElement;
+			submitBtn?.click();
+
+			await vi.advanceTimersByTimeAsync(100);
+
+			expect(submitBtn.disabled).toBe(false);
+			expect(submitBtn.textContent).toBe("Submit Report");
+
+			const toast = host?.shadowRoot?.querySelector(".tif-toast.error");
 			expect(toast).not.toBeNull();
 		});
 

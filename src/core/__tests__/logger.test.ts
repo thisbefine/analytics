@@ -177,6 +177,51 @@ describe("createLogger", () => {
 		});
 	});
 
+	describe("Structured Logging", () => {
+		it("should emit structured JSON for log and warn when enabled", () => {
+			const logger = createLogger("Queue", true, true);
+			logger.log("Event queued", { id: 123 });
+			logger.warn("Warning", { code: "WARN" });
+
+			const [logCall] = consoleSpy.log.mock.calls;
+			const [warnCall] = consoleSpy.log.mock.calls.slice(1);
+
+			const logEntry = JSON.parse(logCall[0] as string) as {
+				level: string;
+				module: string;
+				message: string;
+			};
+			const warnEntry = JSON.parse(warnCall[0] as string) as {
+				level: string;
+				module: string;
+				message: string;
+			};
+
+			expect(logEntry.level).toBe("debug");
+			expect(logEntry.module).toBe("Queue");
+			expect(logEntry.message).toBe("Event queued");
+			expect(warnEntry.level).toBe("warn");
+			expect(warnEntry.module).toBe("Queue");
+			expect(warnEntry.message).toBe("Warning");
+		});
+
+		it("should emit structured JSON for errors even when debug is false", () => {
+			const logger = createLogger("Errors", false, true);
+			logger.error("Fatal");
+
+			const [call] = consoleSpy.log.mock.calls;
+			const entry = JSON.parse(call[0] as string) as {
+				level: string;
+				module: string;
+				message: string;
+			};
+
+			expect(entry.level).toBe("error");
+			expect(entry.module).toBe("Errors");
+			expect(entry.message).toBe("Fatal");
+		});
+	});
+
 	describe("Prefix Formatting", () => {
 		it("should format prefix as [Thisbefine {prefix}]", () => {
 			const logger = createLogger("Queue", true);
