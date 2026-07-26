@@ -70,7 +70,7 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.5.4",
-		"@testing-library/jest-dom": "^6.6.3",
+		"@testing-library/jest-dom": "^7.0.0",
 		"@testing-library/react": "^16.1.0",
 		"@types/node": "^25.1.0",
 		"@types/react": "^19.2.10",
